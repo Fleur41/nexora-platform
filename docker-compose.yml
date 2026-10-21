@@ -76,6 +76,26 @@ services:
       redis:
         condition: service_healthy
 
+  # Scheduled jobs (e.g. hourly occupancy sync). Run exactly one beat process.
+  beat:
+    build: ./backend
+    command: celery -A config beat -l info --schedule /tmp/celerybeat-schedule
+    env_file: ./backend/.env
+    environment:
+      DATABASE_URL: postgres://nexora:${POSTGRES_PASSWORD:-nexora_dev_password}@db:5432/nexora
+      REDIS_URL: redis://redis:6379/0
+      CELERY_TASK_ALWAYS_EAGER: "false"
+      EMAIL_BACKEND: django.core.mail.backends.smtp.EmailBackend
+      EMAIL_HOST: mailpit
+      EMAIL_PORT: "1025"
+    volumes:
+      - ./backend:/app
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
   frontend:
     build: ./frontend
     command: npm run dev

@@ -46,7 +46,9 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
   const method = options.method ?? "GET";
   const headers: Record<string, string> = { Accept: "application/json" };
 
-  if (options.body !== undefined) headers["Content-Type"] = "application/json";
+  const isForm = options.body instanceof FormData;
+  // For FormData the browser sets multipart Content-Type with the boundary itself.
+  if (options.body !== undefined && !isForm) headers["Content-Type"] = "application/json";
   if (UNSAFE.has(method)) headers["X-CSRFToken"] = await ensureCsrfToken();
   if (options.scoped !== false) {
     const organizationId = getActiveOrganizationId();
@@ -59,7 +61,12 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
       method,
       headers,
       credentials: "same-origin",
-      body: options.body === undefined ? undefined : JSON.stringify(options.body),
+      body:
+        options.body === undefined
+          ? undefined
+          : isForm
+            ? (options.body as FormData)
+            : JSON.stringify(options.body),
       signal: options.signal,
     });
   } catch (err) {
@@ -81,6 +88,29 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
   return data as T;
 }
 
+/** Fetch a private file (documents need the organization header, so no plain links). */
+export async function apiDownload(path: string): Promise<Blob> {
+  const headers: Record<string, string> = {};
+  const organizationId = getActiveOrganizationId();
+  if (organizationId) headers["X-Organization-ID"] = organizationId;
+  let res: Response;
+  try {
+    res = await fetch(buildUrl(path), { headers, credentials: "same-origin" });
+  } catch {
+    throw new ApiError(0, null);
+  }
+  if (!res.ok) {
+    let body = null;
+    try {
+      body = await res.json();
+    } catch {
+      body = null;
+    }
+    throw new ApiError(res.status, body);
+  }
+  return res.blob();
+}
+
 export const api = {
   get: <T>(path: string, query?: Query, opts?: Omit<RequestOptions, "method" | "query">) =>
     apiRequest<T>(path, { ...opts, method: "GET", query }),
@@ -88,6 +118,7 @@ export const api = {
     apiRequest<T>(path, { ...opts, method: "POST", body }),
   patch: <T>(path: string, body?: unknown, opts?: Omit<RequestOptions, "method" | "body">) =>
     apiRequest<T>(path, { ...opts, method: "PATCH", body }),
+  upload: <T>(path: string, form: FormData) => apiRequest<T>(path, { method: "POST", body: form }),
   delete: <T = void>(path: string, opts?: Omit<RequestOptions, "method">) =>
     apiRequest<T>(path, { ...opts, method: "DELETE" }),
 };

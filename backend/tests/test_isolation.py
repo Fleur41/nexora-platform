@@ -82,3 +82,63 @@ def test_unauthenticated_requests_are_rejected(org_a):
     client = APIClient(headers={"X-Organization-ID": str(org_a.pk)})
     for path in ["/api/v1/members/", "/api/v1/organizations/current/", "/api/v1/audit-logs/"]:
         assert client.get(path).status_code in (401, 403)
+
+
+def test_property_module_records_are_isolated(make_member, org_a, org_b):
+    from .factories import (
+        LeaseFactory,
+        PropertyFactory,
+        TenantFactory,
+        UnitFactory,
+        UnitTypeFactory,
+    )
+
+    _, client = make_member(org_a)
+    foreign = LeaseFactory(
+        unit=UnitFactory(unit_type=UnitTypeFactory(property=PropertyFactory(organization=org_b)))
+    )
+    for path in [
+        f"/api/v1/properties/{foreign.unit.property_id}/",
+        f"/api/v1/unit-types/{foreign.unit.unit_type_id}/",
+        f"/api/v1/units/{foreign.unit_id}/",
+        f"/api/v1/tenants/{foreign.tenant_id}/",
+        f"/api/v1/leases/{foreign.pk}/",
+    ]:
+        assert client.get(path).status_code == 404, path
+    for path in ["/api/v1/properties/", "/api/v1/units/", "/api/v1/tenants/", "/api/v1/leases/"]:
+        assert client.get(path).data["count"] == 0, path
+    assert client.get("/api/v1/units/summary/").data["total"] == 0
+
+    # Cannot link own records to another organization's tenant, unit or unit type.
+    own_unit = UnitFactory(unit_type=UnitTypeFactory(property=PropertyFactory(organization=org_a)))
+    own_tenant = TenantFactory(organization=org_a)
+    lease_payload = {"start_date": "2026-01-01", "monthly_rent": "100"}
+    res = client.post(
+        "/api/v1/leases/",
+        {**lease_payload, "tenant": str(foreign.tenant_id), "unit": str(own_unit.pk)},
+    )
+    assert res.status_code == 400 and "tenant" in res.data["error"]["details"]
+    res = client.post(
+        "/api/v1/leases/",
+        {**lease_payload, "tenant": str(own_tenant.pk), "unit": str(foreign.unit_id)},
+    )
+    assert res.status_code == 400 and "unit" in res.data["error"]["details"]
+    res = client.post(
+        "/api/v1/units/",
+        {
+            "property": str(own_unit.property_id),
+            "unit_type": str(foreign.unit.unit_type_id),
+            "number": "X",
+        },
+    )
+    assert res.status_code == 400
+    # Mutating actions on foreign ids are 404, and nothing changes.
+    assert client.post(f"/api/v1/leases/{foreign.pk}/end/", {}).status_code == 404
+    assert (
+        client.post(
+            f"/api/v1/units/{foreign.unit_id}/status/", {"status": "unavailable"}
+        ).status_code
+        == 404
+    )
+    foreign.unit.refresh_from_db()
+    assert foreign.unit.status == "occupied"

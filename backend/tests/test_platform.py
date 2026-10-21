@@ -26,7 +26,11 @@ def test_membership_changes_are_audited_with_diff(make_member, org_a):
     target, _ = make_member(org_a, role=Role.CARETAKER)
     client.patch(f"/api/v1/members/{target.pk}/", {"role": "accountant"})
     log = AuditLog.objects.get(action="membership.updated")
-    assert log.changes == {"role": {"from": "caretaker", "to": "accountant"}}
+    # Changing role also resets record access to the new role's default scope.
+    assert log.changes == {
+        "role": {"from": "caretaker", "to": "accountant"},
+        "access_scope": {"from": "assigned", "to": "organization"},
+    }
     assert log.actor_email
     assert log.organization == org_a
 

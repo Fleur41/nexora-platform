@@ -147,6 +147,9 @@ export function MembersTable() {
                           {ROLE_LABELS[m.role]}
                         </Badge>
                         {customized && <Badge variant="outline">Custom</Badge>}
+                        {m.role !== "owner" && m.access_scope === "assigned" && (
+                          <Badge variant="outline">Assigned properties</Badge>
+                        )}
                         {m.status === "suspended" && <Badge variant="warning">Suspended</Badge>}
                       </div>
                     </TableCell>

@@ -1,6 +1,16 @@
 "use client";
 
-import { ArrowRight, Building2, MailPlus, ScrollText, Users } from "lucide-react";
+import {
+  ArrowRight,
+  CalendarClock,
+  DoorOpen,
+  Home,
+  MailPlus,
+  Percent,
+  ScrollText,
+  UserCheck,
+  Users,
+} from "lucide-react";
 import Link from "next/link";
 
 import { PageHeader } from "@/components/layout/page-header";
@@ -9,13 +19,16 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Stat } from "@/components/ui/stat";
 import { ErrorState } from "@/components/ui/states";
 import { useAuditLogs } from "@/features/audit/api";
+import { useLeases } from "@/features/leases/api";
+import { useProperties, useUnitSummary } from "@/features/properties/api";
 import { describeAction } from "@/features/audit/describe";
 import { useInvitations, useMembers } from "@/features/team/api";
 import { errorMessage } from "@/lib/api/errors";
 import { ROLE_LABELS } from "@/lib/roles";
-import { formatDateTime } from "@/lib/utils";
+import { formatDateTime, formatDay } from "@/lib/utils";
 
 export default function DashboardHome() {
   const { current, can } = useOrganization();
@@ -25,6 +38,10 @@ export default function DashboardHome() {
   const members = useMembers({}, canTeam);
   const invitations = useInvitations({ status: "pending" }, canTeam);
   const audit = useAuditLogs({ page_size: 6 }, canAudit);
+  const canProperties = can("properties.view");
+  const properties = useProperties({ page_size: 1, is_active: true }, canProperties);
+  const units = useUnitSummary(canProperties);
+  const expiring = useLeases({ expiring_within_days: 60, page_size: 5 }, can("leases.view"));
 
   return (
     <>
@@ -32,6 +49,44 @@ export default function DashboardHome() {
         title={org.name}
         description={`You are signed in as ${ROLE_LABELS[current.role]}. Currency ${org.currency} · ${org.timezone.replace("_", " ")}`}
       />
+
+      {canProperties && (
+        <div className="mb-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <Stat
+            icon={Home}
+            label="Active properties"
+            value={properties.data?.count ?? 0}
+            loading={properties.isPending}
+            href="/dashboard/properties"
+          />
+          <Stat
+            icon={DoorOpen}
+            label="Units"
+            value={units.data?.total ?? 0}
+            hint={units.data ? `${units.data.vacant} available` : undefined}
+            loading={units.isPending}
+            href="/dashboard/units"
+          />
+          <Stat
+            icon={UserCheck}
+            label="Occupied units"
+            value={units.data?.occupied ?? 0}
+            loading={units.isPending}
+            href="/dashboard/units?status=occupied"
+          />
+          <Stat
+            icon={Percent}
+            label="Occupancy"
+            value={
+              units.data?.occupancy_rate === null || units.data === undefined
+                ? "—"
+                : `${units.data.occupancy_rate}%`
+            }
+            hint="Of lettable units"
+            loading={units.isPending}
+          />
+        </div>
+      )}
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         {canTeam && (
@@ -52,19 +107,44 @@ export default function DashboardHome() {
             href="/dashboard/team?tab=invitations"
           />
         )}
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardDescription>Property management</CardDescription>
-              <Building2 className="size-4 text-muted-foreground" aria-hidden />
-            </div>
-            <CardTitle className="text-base">Coming in the next release</CardTitle>
-          </CardHeader>
-          <CardContent className="text-sm text-muted-foreground">
-            Properties, units, tenants and leases arrive in Phase 2. Your team and permissions
-            are ready for them.
-          </CardContent>
-        </Card>
+        {can("leases.view") && (
+          <Card className="sm:col-span-2 xl:col-span-1">
+            <CardHeader className="flex-row items-center justify-between">
+              <div>
+                <CardTitle className="text-base">Leases ending soon</CardTitle>
+                <CardDescription>Fixed-term leases ending in 60 days</CardDescription>
+              </div>
+              <CalendarClock className="size-4 text-muted-foreground" aria-hidden />
+            </CardHeader>
+            <CardContent>
+              {expiring.isPending ? (
+                <Skeleton className="h-16 w-full" />
+              ) : expiring.isError ? (
+                <ErrorState message={errorMessage(expiring.error)} />
+              ) : expiring.data.results.length === 0 ? (
+                <p className="text-sm text-muted-foreground">None. You&apos;re all set.</p>
+              ) : (
+                <ul className="space-y-2 text-sm">
+                  {expiring.data.results.map((l) => (
+                    <li key={l.id} className="flex justify-between gap-2">
+                      <Link className="truncate hover:underline" href={`/dashboard/leases/${l.id}`}>
+                        {l.tenant_name} · {l.unit_number}
+                      </Link>
+                      <span className="shrink-0 text-muted-foreground">{formatDay(l.end_date)}</span>
+                    </li>
+                  ))}
+                  {expiring.data.count > expiring.data.results.length && (
+                    <li>
+                      <Link className="text-primary hover:underline" href="/dashboard/leases?view=expiring">
+                        +{expiring.data.count - expiring.data.results.length} more
+                      </Link>
+                    </li>
+                  )}
+                </ul>
+              )}
+            </CardContent>
+          </Card>
+        )}
       </div>
 
       {canAudit && (

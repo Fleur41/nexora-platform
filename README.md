@@ -4,16 +4,16 @@ Nexora is a multi-tenant, all-in-one business management platform. Property mana
 first business module; the shared platform layer (accounts, organizations, roles, audit) is built
 so future modules such as POS, inventory and finance can plug into it.
 
-> **Status: Phase 1 (platform foundation) is complete.** Property management, billing, payments
-> and reporting are **not built yet**. See [docs/roadmap.md](docs/roadmap.md) for the phase
-> checklist and known limitations.
+> **Status: Phases 1–2 are complete**: the platform foundation, plus properties, units, tenants,
+> leases and occupancy. Billing, payments, maintenance and reporting are **not built yet**. See
+> [docs/roadmap.md](docs/roadmap.md) for the phase checklist and known limitations.
 
 | Layer    | Stack                                                                          |
 | -------- | ------------------------------------------------------------------------------ |
 | Backend  | Python 3.11+, Django 5.2 LTS, Django REST Framework, drf-spectacular, Celery   |
 | Database | PostgreSQL 17, Redis 7 (cache, throttling, Celery broker)                      |
 | Frontend | Next.js 16 (App Router, Cache Components), TypeScript strict, Tailwind CSS 4, Radix/shadcn-style UI, TanStack Query, React Hook Form + Zod |
-| Tooling  | Docker Compose, pytest, Vitest + Testing Library, Ruff, ESLint, GitHub Actions |
+| Tooling  | Docker Compose, pytest, Vitest + Testing Library, Playwright, Ruff, ESLint, GitHub Actions |
 
 ## Repository layout
 
@@ -24,13 +24,18 @@ backend/                Django project (owns all business rules, auth and data a
   apps/accounts/        custom email-based User, auth endpoints
   apps/organizations/   Organization, Membership, Invitation, roles, tenancy enforcement
   apps/audit/           append-only AuditLog
-  tests/                API and isolation tests
+  apps/documents/       private file storage attached to properties, units, tenants, leases
+  apps/properties/      Property, UnitType, Unit, PropertyAssignment (Nexora Property module)
+  apps/tenants/         Tenant records (never hard-deleted)
+  apps/leases/          Lease, effective-dated LeaseRentTerm, occupancy transitions
+  tests/                API, permission and isolation tests
 frontend/               Next.js app; talks to Django only through lib/api/client.ts
   app/                  routes: (public) landing, (auth) pages, onboarding, dashboard
   components/           ui primitives, layout shell, providers, brand
   features/             per-domain API hooks, schemas and components
+  e2e/                  Playwright browser tests against the running stack
 docs/                   architecture and roadmap
-docker-compose.yml      Postgres, Redis, Mailpit, backend, Celery worker, frontend
+docker-compose.yml      Postgres, Redis, Mailpit, backend, Celery worker + beat, frontend
 ```
 
 ## Running locally
@@ -85,6 +90,10 @@ cd backend
 # Frontend
 cd frontend
 npm run lint && npm run typecheck && npm test && npm run build
+
+# Browser end-to-end tests: start Django (:8000) and Next.js (:3000) first
+npx playwright install chromium            # once
+npm run test:e2e
 ```
 
 CI (`.github/workflows/ci.yml`) runs the same checks plus `manage.py check --deploy`.
@@ -101,6 +110,22 @@ CI (`.github/workflows/ci.yml`) runs the same checks plus `manage.py check --dep
 6. As the owner: **Team → Edit access** to grant/revoke individual permissions; check
    **Audit log** for the recorded changes.
 
+### Manual walkthrough of Phase 2
+
+1. **Properties → Add property**, then open it. On **Unit types**, add e.g. a one-bedroom with
+   a default rent and deposit (a deposit of 0 means none).
+2. On **Units**, choose **Add several** to create a numbered run (e.g. C1–C10). Click a tile to
+   see details or set it *Under maintenance* / *Unavailable*.
+3. **Tenants → Register tenant**. Phone numbers are normalised to +254 format. ID numbers must
+   be unique within the organization.
+4. From the tenant page choose **New lease**, pick the property and an available unit. Rent and
+   deposit prefill from the unit and remain editable. With **Activate now** checked, the unit
+   becomes *Occupied*, or *Reserved* if the lease starts in the future.
+5. On the lease, **Schedule rent change** adds a future-dated term. Past terms can't be changed.
+   **End lease** closes it and sets the unit's next status (e.g. *Awaiting inspection*).
+6. Invite a caretaker. They see no properties until assigned under **Property → Staff access**
+   (or Team → Edit access), and never see leases or rent.
+
 ## Security model (summary)
 
 - Session cookies (HttpOnly, SameSite=Lax) plus CSRF tokens. The browser calls `/api/*` on the
@@ -111,6 +136,11 @@ CI (`.github/workflows/ci.yml`) runs the same checks plus `manage.py check --dep
 - Capabilities are enforced in DRF permission classes. Unlisted view actions are denied by
   default. Non-owners cannot grant the owner role, change owners, edit themselves, or grant
   permissions they don't hold. The last owner cannot be removed.
+- Members are either whole-organization or assigned-properties-only (the default for property
+  managers and caretakers). Assigned-scope members only reach their properties and the units,
+  tenants, leases and documents on them.
+- Uploaded files are validated by content (PDF, DOCX, JPEG, PNG, WebP), stored under random
+  names in private storage, and only served through a permission-checked download endpoint.
 - Platform administrators get **no** implicit access to organization data.
 - Audit log entries are append-only (model, queryset and admin all refuse updates and deletes).
 - Login, registration, password reset and invitation endpoints are rate-limited and CSRF-protected,

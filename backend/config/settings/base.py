@@ -24,6 +24,7 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    "django.contrib.postgres",
     "rest_framework",
     "django_filters",
     "drf_spectacular",
@@ -32,6 +33,11 @@ INSTALLED_APPS = [
     "apps.accounts",
     "apps.organizations",
     "apps.audit",
+    "apps.documents",
+    # Business modules
+    "apps.properties",
+    "apps.tenants",
+    "apps.leases",
 ]
 
 MIDDLEWARE = [
@@ -90,6 +96,26 @@ NEXORA_DEFAULT_CURRENCY = env("NEXORA_DEFAULT_CURRENCY", default="KES")
 STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 
+# --- Private file storage -------------------------------------------------
+# Uploaded documents are never served from a public URL. They are streamed through
+# permission-checked API endpoints. Local development stores them on disk; production
+# should point the "private" storage at an S3-compatible bucket (django-storages).
+PRIVATE_MEDIA_ROOT = Path(env("PRIVATE_MEDIA_ROOT", default=str(BASE_DIR / "private_media")))
+STORAGES = {
+    "default": {
+        "BACKEND": "django.core.files.storage.FileSystemStorage",
+        "OPTIONS": {"location": PRIVATE_MEDIA_ROOT, "base_url": None},
+    },
+    "private": {
+        "BACKEND": "django.core.files.storage.FileSystemStorage",
+        "OPTIONS": {"location": PRIVATE_MEDIA_ROOT},
+    },
+    "staticfiles": {"BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"},
+}
+DOCUMENT_MAX_UPLOAD_BYTES = env.int("DOCUMENT_MAX_UPLOAD_BYTES", default=10 * 1024 * 1024)
+DATA_UPLOAD_MAX_MEMORY_SIZE = 2 * 1024 * 1024
+FILE_UPLOAD_MAX_MEMORY_SIZE = 2 * 1024 * 1024
+
 # --- Sessions & CSRF -------------------------------------------------------
 # The browser talks to Django through the Next.js proxy, so cookies are same-origin.
 SESSION_COOKIE_NAME = "nexora_session"
@@ -134,6 +160,10 @@ SPECTACULAR_SETTINGS = {
     "SERVE_INCLUDE_SCHEMA": False,
     "COMPONENT_SPLIT_REQUEST": True,
     "SCHEMA_PATH_PREFIX": r"/api/v1",
+    "ENUM_NAME_OVERRIDES": {
+        "UnitTypeCategoryEnum": "apps.properties.models.UnitType.Category",
+        "DocumentCategoryEnum": "apps.documents.models.Document.Category",
+    },
 }
 
 # --- Cache (throttling) ----------------------------------------------------
@@ -151,6 +181,12 @@ CELERY_RESULT_BACKEND = None
 CELERY_TASK_ALWAYS_EAGER = env.bool("CELERY_TASK_ALWAYS_EAGER", default=False)
 CELERY_TIMEZONE = TIME_ZONE
 CELERY_TASK_ACKS_LATE = True
+CELERY_BEAT_SCHEDULE = {
+    "sync-unit-occupancy": {
+        "task": "apps.leases.tasks.sync_unit_occupancy",
+        "schedule": 60 * 60,  # hourly; idempotent
+    },
+}
 
 # --- Email -----------------------------------------------------------------
 EMAIL_BACKEND = env("EMAIL_BACKEND", default="django.core.mail.backends.console.EmailBackend")

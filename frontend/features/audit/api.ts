@@ -17,6 +17,9 @@ export function useAuditLogs(params: AuditLogParams, enabled = true) {
     queryKey: queryKeys.auditLogs(organizationId, params),
     queryFn: () => api.get<Paginated<AuditLogEntry>>("/audit-logs/", params),
     placeholderData: keepPreviousData,
+    // Every mutation can add audit entries, so always refetch when the log is shown.
+    staleTime: 0,
+    refetchOnMount: "always",
     enabled,
   });
 }

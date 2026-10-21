@@ -151,7 +151,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
           );
         })}
       </nav>
-      <p className="mt-auto px-2 text-xs text-sidebar-foreground/70">Nexora Platform · Phase 1</p>
+      <p className="mt-auto px-2 text-xs text-sidebar-foreground/70">Nexora · Property</p>
     </div>
   );
 }

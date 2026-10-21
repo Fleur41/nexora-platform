@@ -17,10 +17,17 @@ import {
 import { FormField } from "@/components/ui/form-field";
 import { NativeSelect } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  useAssignProperty,
+  usePropertyAssignments,
+  usePropertyOptions,
+  useUnassignProperty,
+} from "@/features/properties/api";
 import { useCapabilityCatalog, useUpdateMember } from "@/features/team/api";
+import { errorMessage } from "@/lib/api/errors";
 import { effectiveCapabilities, overridesFor } from "@/features/team/permissions";
 import { ASSIGNABLE_ROLES, ROLE_DESCRIPTIONS, ROLE_LABELS } from "@/lib/roles";
-import type { Membership, Role } from "@/types/api";
+import type { AccessScope, Membership, Role } from "@/types/api";
 
 export function EditMemberDialog({
   member,
@@ -56,8 +63,12 @@ function EditMemberForm({ member, onDone }: { member: Membership; onDone: () => 
         )
       : null);
 
+  const [scope, setScope] = React.useState<AccessScope>(member.access_scope);
+
   const changeRole = (next: Role) => {
     setRole(next);
+    const defaultScope = catalog.data?.roles.find((r) => r.key === next)?.default_access_scope;
+    if (defaultScope) setScope(defaultScope);
     // Switching role resets to that role's defaults.
     if (catalog.data) setGranted(effectiveCapabilities(catalog.data, next, [], []));
   };
@@ -69,7 +80,12 @@ function EditMemberForm({ member, onDone }: { member: Membership; onDone: () => 
   const save = () => {
     if (!catalog.data || !granted) return;
     update.mutate(
-      { id: member.id, role, ...overridesFor(catalog.data, role, granted) },
+      {
+        id: member.id,
+        role,
+        access_scope: role === "owner" ? "organization" : scope,
+        ...overridesFor(catalog.data, role, granted),
+      },
       {
         onSuccess: () => {
           toast.success(`Updated access for ${member.user.full_name}`);
@@ -97,6 +113,42 @@ function EditMemberForm({ member, onDone }: { member: Membership; onDone: () => 
           ))}
         </NativeSelect>
       </FormField>
+
+      {role !== "owner" && (
+        <fieldset className="space-y-2">
+          <legend className="text-sm font-medium">Record access</legend>
+          {(["organization", "assigned"] as const).map((value) => {
+            // Only members with whole-organization access can grant it (enforced by the API).
+            const disabled = value === "organization" && current.role !== "owner" && current.access_scope !== "organization";
+            return (
+              <label key={value} className="flex cursor-pointer items-start gap-3 rounded-lg border p-3 text-sm has-[:checked]:border-accent has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-60">
+                <input
+                  type="radio"
+                  name="access_scope"
+                  className="mt-0.5 accent-[var(--accent)]"
+                  checked={scope === value}
+                  disabled={disabled}
+                  onChange={() => setScope(value)}
+                />
+                <span>
+                  <span className="block font-medium">
+                    {value === "organization" ? "All properties" : "Assigned properties only"}
+                  </span>
+                  <span className="block text-muted-foreground">
+                    {value === "organization"
+                      ? "Sees every property, unit, tenant and lease their permissions allow."
+                      : "Sees only properties they are assigned to, and the units, tenants and leases on them."}
+                  </span>
+                </span>
+              </label>
+            );
+          })}
+          {scope === "assigned" && member.access_scope === "assigned" && <AssignedProperties membershipId={member.id} />}
+          {scope === "assigned" && member.access_scope !== "assigned" && (
+            <p className="text-xs text-muted-foreground">Save first, then choose which properties they can access.</p>
+          )}
+        </fieldset>
+      )}
 
       <div className="space-y-2">
         <p className="text-sm font-medium">Permissions</p>
@@ -149,5 +201,51 @@ function EditMemberForm({ member, onDone }: { member: Membership; onDone: () => 
         </Button>
       </DialogFooter>
     </>
+  );
+}
+
+/** Property checkboxes for an assigned-scope member. Changes are saved immediately. */
+function AssignedProperties({ membershipId }: { membershipId: string }) {
+  const properties = usePropertyOptions();
+  const assignments = usePropertyAssignments({ membership: membershipId });
+  const assign = useAssignProperty();
+  const unassign = useUnassignProperty();
+  const byProperty = new Map(assignments.data?.map((a) => [a.property, a.id]));
+  const busy = assign.isPending || unassign.isPending;
+
+  if (properties.isPending || assignments.isPending) return <Skeleton className="h-20 w-full" />;
+  const list = properties.data?.results ?? [];
+  if (list.length === 0) {
+    return <p className="text-xs text-muted-foreground">No properties yet.</p>;
+  }
+  return (
+    <div className="rounded-lg border">
+      <p className="border-b px-3 py-2 text-xs text-muted-foreground">
+        Assigned properties ({byProperty.size}) · changes save immediately
+      </p>
+      <ul className="max-h-48 divide-y overflow-y-auto">
+        {list.map((p) => {
+          const assignmentId = byProperty.get(p.id);
+          return (
+            <li key={p.id}>
+              <label className="flex cursor-pointer items-center gap-3 px-3 py-2 text-sm">
+                <input
+                  type="checkbox"
+                  className="size-4 accent-[var(--accent)]"
+                  checked={Boolean(assignmentId)}
+                  disabled={busy}
+                  onChange={(e) => {
+                    const onError = (err: unknown) => toast.error(errorMessage(err));
+                    if (e.target.checked) assign.mutate({ property: p.id, membership: membershipId }, { onError });
+                    else if (assignmentId) unassign.mutate(assignmentId, { onError });
+                  }}
+                />
+                {p.name}
+              </label>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
   );
 }

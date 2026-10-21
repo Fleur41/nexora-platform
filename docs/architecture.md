@@ -61,7 +61,54 @@ in `AppConfig.ready()` and immediately works with existing roles, invitations an
 This is covered by `tests/test_platform.py::test_new_module_capabilities_flow_through_shared_roles`.
 
 Tenants and prospective tenants are **not** memberships. They will get their own portal access
-model in Phase 2/5, so a tenant can never reach staff endpoints by role misconfiguration.
+model (Phase 5), so a tenant can never reach staff endpoints by role misconfiguration.
+
+### Record scope (assigned properties)
+
+Capabilities say *what* a member may do. `Membership.access_scope` says *which records*:
+
+- `organization`: every record in the organization (owners always; accountants by default).
+- `assigned`: only properties listed in `PropertyAssignment` for that member (default for
+  property managers and caretakers), plus records hanging off them.
+
+`apps.properties.access.PropertyScopedViewSet` applies this on top of organization filtering.
+Each view declares `property_path` (e.g. `"unit__property"` for leases). Tenants are visible to
+assigned-scope members when they have a lease on an accessible property, or when the member
+registered them and they have no lease yet. Serializer related fields (`AccessiblePropertyField`,
+`AccessibleUnitField`, `AccessibleTenantField`) apply the same scope to writes. Only members with
+organization scope can widen someone else's scope, and a member can only assign properties they
+can access themselves.
+
+## Property module invariants
+
+- **Units** have a status. Staff set `available`, `under_maintenance` and `unavailable` by hand.
+  `reserved` and `occupied` are set only by lease activation; `notice_submitted` will be set by the
+  move-out workflow (Phase 5). Ending a lease moves the unit to a status the closer chooses
+  (including `awaiting_inspection`), never automatically to `available`.
+- **Leases**: `draft → active → ended`, or `draft → cancelled`. Only drafts are editable. Two
+  database constraints protect occupancy: a partial unique index (one active lease per unit) and
+  a PostgreSQL exclusion constraint (`btree_gist`) that rejects overlapping date ranges for
+  active/ended leases on the same unit, using `daterange(start_date, coalesce(ended_on, end_date))`.
+- **Rent** lives in `LeaseRentTerm` rows with `effective_from`. On an active lease new terms
+  must start in the future, and terms already in force can't be removed. Changing a unit's
+  asking rent never touches existing leases.
+- **References** (`PRP-0001`, `LSE-0001`) come from `core.OrganizationSequence`, a per-organization
+  counter locked with `SELECT … FOR UPDATE`. Invoices and receipts will use it too.
+- **Dates** that matter for business rules ("today") use the organization's timezone
+  (`organizations.models.organization_today`), not the server's.
+- An hourly Celery beat job (`leases.tasks.sync_unit_occupancy`) flips `reserved` units to
+  `occupied` when their lease starts. It runs per organization and is idempotent.
+
+## Documents
+
+`apps.documents.Document` attaches a private file to exactly one of property, unit, tenant or
+lease (enforced by a check constraint). Uploads are sniffed by magic bytes; the client's
+filename and MIME type are not trusted. Files are stored under `org/<org_id>/<random>.<ext>` in
+the `private` storage (local disk in development; point it at an S3-compatible bucket in
+production). Viewing needs the view capability of the attached record, except tenant documents
+(IDs), which need `tenants.manage`. Deletes are soft and audited. Downloads go through
+`/documents/{id}/download/` with `nosniff`, a sandboxing CSP and `no-store`; the frontend fetches
+them as blobs because the organization header can't be sent from a plain link.
 
 ## Authentication
 

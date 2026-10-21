@@ -56,7 +56,7 @@ describe("api client", () => {
         error: { code: "invalid", message: "Some fields are invalid.", details: { email: ["Taken."] } },
       }),
     );
-    const err = await api.post("/auth/register/", {}).catch((e) => e);
+    const err = (await api.post("/auth/register/", {}).catch((e: unknown) => e)) as ApiError;
     expect(err).toBeInstanceOf(ApiError);
     expect(err.status).toBe(400);
     expect(err.fieldError("email")).toBe("Taken.");
@@ -64,7 +64,7 @@ describe("api client", () => {
 
   it("reports network failures as status 0 with a friendly message", async () => {
     fetchMock.mockRejectedValue(new TypeError("Failed to fetch"));
-    const err = await api.get("/members/").catch((e) => e);
+    const err = (await api.get("/members/").catch((e: unknown) => e)) as ApiError;
     expect(err).toBeInstanceOf(ApiError);
     expect(err.status).toBe(0);
     expect(err.message).toMatch(/could not reach/i);

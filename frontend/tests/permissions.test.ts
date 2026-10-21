@@ -4,6 +4,7 @@ import { effectiveCapabilities, overridesFor } from "@/features/team/permissions
 import type { CapabilityCatalog } from "@/types/api";
 
 const catalog: CapabilityCatalog = {
+  access_scopes: [],
   capabilities: [
     { key: "organization.manage", label: "", module: "platform" },
     { key: "members.view", label: "", module: "platform" },
@@ -11,10 +12,10 @@ const catalog: CapabilityCatalog = {
     { key: "audit.view", label: "", module: "platform" },
   ],
   roles: [
-    { key: "owner", label: "", default_capabilities: [] },
-    { key: "property_manager", label: "", default_capabilities: ["members.view"] },
-    { key: "accountant", label: "", default_capabilities: ["audit.view"] },
-    { key: "caretaker", label: "", default_capabilities: [] },
+    { key: "owner", label: "", default_access_scope: "organization", default_capabilities: [] },
+    { key: "property_manager", label: "", default_access_scope: "assigned", default_capabilities: ["members.view"] },
+    { key: "accountant", label: "", default_access_scope: "organization", default_capabilities: ["audit.view"] },
+    { key: "caretaker", label: "", default_access_scope: "assigned", default_capabilities: [] },
   ],
 };
 

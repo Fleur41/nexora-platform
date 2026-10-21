@@ -4,7 +4,7 @@ from apps.accounts.serializers import UserSerializer
 from apps.core.modules import registry
 
 from .models import Invitation, Membership, Organization
-from .roles import Role
+from .roles import DEFAULT_ACCESS_SCOPE, AccessScope, Role
 
 
 class OrganizationSerializer(serializers.ModelSerializer):
@@ -52,6 +52,7 @@ class MyOrganizationSerializer(serializers.Serializer):
     organization = OrganizationSerializer()
     membership_id = serializers.UUIDField(source="id")
     role = serializers.CharField()
+    access_scope = serializers.CharField()
     capabilities = serializers.SerializerMethodField()
 
     def get_capabilities(self, membership: Membership) -> list[str]:
@@ -69,6 +70,7 @@ class MembershipSerializer(serializers.ModelSerializer):
             "user",
             "role",
             "status",
+            "access_scope",
             "extra_permissions",
             "revoked_permissions",
             "capabilities",
@@ -82,6 +84,7 @@ class MembershipSerializer(serializers.ModelSerializer):
 
 class MembershipUpdateSerializer(serializers.Serializer):
     role = serializers.ChoiceField(choices=Role.choices, required=False)
+    access_scope = serializers.ChoiceField(choices=AccessScope.choices, required=False)
     extra_permissions = serializers.ListField(child=serializers.CharField(), required=False)
     revoked_permissions = serializers.ListField(child=serializers.CharField(), required=False)
 
@@ -134,10 +137,12 @@ class CapabilityCatalogSerializer(serializers.Serializer):
                 {"key": c.key, "label": c.label, "module": c.module}
                 for c in registry.capabilities()
             ],
+            "access_scopes": [{"key": s.value, "label": s.label} for s in AccessScope],
             "roles": [
                 {
                     "key": role.value,
                     "label": role.label,
+                    "default_access_scope": DEFAULT_ACCESS_SCOPE[role],
                     "default_capabilities": (
                         sorted(c.key for c in registry.capabilities())
                         if role == Role.OWNER
