@@ -10,7 +10,7 @@ from django.utils import timezone
 from apps.core.models import TimeStampedModel
 from apps.core.modules import registry
 
-from .roles import Role
+from .roles import DEFAULT_ACCESS_SCOPE, AccessScope, Role
 
 
 class Organization(TimeStampedModel):
@@ -57,6 +57,8 @@ class Membership(TimeStampedModel):
     )
     role = models.CharField(max_length=32, choices=Role.choices)
     status = models.CharField(max_length=16, choices=Status.choices, default=Status.ACTIVE)
+    # Blank means "use the role's default" and is resolved on save.
+    access_scope = models.CharField(max_length=16, choices=AccessScope.choices, blank=True)
     extra_permissions = models.JSONField(default=list, blank=True)
     revoked_permissions = models.JSONField(default=list, blank=True)
     invited_by = models.ForeignKey(
@@ -81,6 +83,17 @@ class Membership(TimeStampedModel):
 
     def __str__(self) -> str:
         return f"{self.user} @ {self.organization} ({self.role})"
+
+    def save(self, *args, **kwargs):
+        if not self.access_scope:
+            self.access_scope = DEFAULT_ACCESS_SCOPE[self.role]
+        if self.role == Role.OWNER:
+            self.access_scope = AccessScope.ORGANIZATION
+        super().save(*args, **kwargs)
+
+    @property
+    def has_organization_scope(self) -> bool:
+        return self.is_owner or self.access_scope == AccessScope.ORGANIZATION
 
     @property
     def is_owner(self) -> bool:
@@ -159,3 +172,10 @@ class Invitation(TimeStampedModel):
         token = secrets.token_urlsafe(32)
         self.token_hash = hash_token(token)
         return token
+
+
+def organization_today(organization: Organization):
+    """Today's date in the organization's own timezone (not the server's)."""
+    from zoneinfo import ZoneInfo
+
+    return timezone.localdate(timezone=ZoneInfo(organization.timezone))

@@ -21,6 +21,26 @@ class Role(models.TextChoices):
     CARETAKER = "caretaker", "Caretaker / maintenance"
 
 
+class AccessScope(models.TextChoices):
+    """Which records a member can reach within capabilities they hold.
+
+    ORGANIZATION: every record in the organization.
+    ASSIGNED: only resources explicitly assigned to the member (e.g. properties). Modules
+    decide what "assigned" means for their own resources.
+    """
+
+    ORGANIZATION = "organization", "Whole organization"
+    ASSIGNED = "assigned", "Assigned resources only"
+
+
+DEFAULT_ACCESS_SCOPE = {
+    Role.OWNER: AccessScope.ORGANIZATION,
+    Role.ACCOUNTANT: AccessScope.ORGANIZATION,
+    Role.PROPERTY_MANAGER: AccessScope.ASSIGNED,
+    Role.CARETAKER: AccessScope.ASSIGNED,
+}
+
+
 PLATFORM_MODULE = ModuleDefinition(
     key="platform",
     name="Nexora Platform",

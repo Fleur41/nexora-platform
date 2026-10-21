@@ -10,3 +10,13 @@ REST_FRAMEWORK = {
     **REST_FRAMEWORK,
     "DEFAULT_THROTTLE_RATES": {"anon": "1000/min", "user": "1000/min", "auth": "1000/min"},
 }
+
+import tempfile  # noqa: E402
+from pathlib import Path  # noqa: E402
+
+PRIVATE_MEDIA_ROOT = Path(tempfile.mkdtemp(prefix="nexora-test-media-"))
+STORAGES = {
+    "default": {"BACKEND": "django.core.files.storage.InMemoryStorage"},
+    "private": {"BACKEND": "django.core.files.storage.InMemoryStorage"},
+    "staticfiles": {"BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"},
+}

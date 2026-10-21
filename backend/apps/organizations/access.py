@@ -8,7 +8,8 @@ organization, so object IDs from other organizations resolve to 404.
 
 import uuid
 
-from rest_framework import exceptions, permissions, serializers, viewsets
+from rest_framework import exceptions, permissions, serializers, status, viewsets
+from rest_framework.response import Response
 
 from .models import Membership, Organization
 
@@ -67,6 +68,8 @@ class OrganizationPermission(permissions.BasePermission):
         membership = resolve_membership(request)
         bind_organization(request, membership)
 
+        if hasattr(view, "action_map") and view.action is None:
+            return True  # method not routed on this viewset; DRF responds 405
         action = getattr(view, "action", None) or request.method.lower()
         required = getattr(view, "required_capabilities", {})
         if action not in required:
@@ -123,3 +126,25 @@ class OrganizationScopedPrimaryKeyRelatedField(serializers.PrimaryKeyRelatedFiel
         if organization is None:
             return queryset.none()
         return queryset.filter(**{self.organization_field: organization})
+
+
+class RefetchOnWriteMixin:
+    """Create/update via services, then serialize the object re-read through get_queryset().
+
+    Keeps annotations (counts) and prefetches in the response and guarantees the response
+    only contains what the caller is allowed to read.
+    """
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        self.perform_create(serializer)
+        instance = self.get_queryset().get(pk=serializer.instance.pk)
+        return Response(self.get_serializer(instance).data, status=status.HTTP_201_CREATED)
+
+    def partial_update(self, request, *args, **kwargs):
+        serializer = self.get_serializer(self.get_object(), data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        self.perform_update(serializer)
+        instance = self.get_queryset().get(pk=serializer.instance.pk)
+        return Response(self.get_serializer(instance).data)

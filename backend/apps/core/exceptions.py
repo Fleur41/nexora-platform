@@ -8,6 +8,7 @@ import logging
 
 from django.core.exceptions import PermissionDenied as DjangoPermissionDenied
 from django.core.exceptions import ValidationError as DjangoValidationError
+from django.db.models import ProtectedError
 from django.http import Http404
 from rest_framework import exceptions, status
 from rest_framework.response import Response
@@ -45,6 +46,8 @@ def api_exception_handler(exc, context):
         exc = exceptions.NotFound()
     elif isinstance(exc, DjangoPermissionDenied):
         exc = exceptions.PermissionDenied()
+    elif isinstance(exc, ProtectedError):
+        exc = BusinessRuleViolation("This record is in use by other records and cannot be deleted.")
 
     response = exception_handler(exc, context)
     if response is None:

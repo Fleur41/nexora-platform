@@ -1,6 +1,10 @@
 import {
   Building2,
+  DoorOpen,
+  FileText,
+  Home,
   LayoutDashboard,
+  UserCog,
   ScrollText,
   Settings,
   Users,
@@ -15,11 +19,15 @@ export interface NavItem {
   capability?: string;
 }
 
-// Only modules that are actually implemented appear here. Property, billing, payments,
-// and other modules are added as their phases ship.
+// Only modules that are actually implemented appear here. Billing, payments and other
+// modules are added as their phases ship.
 export const DASHBOARD_NAV: NavItem[] = [
   { href: "/dashboard", label: "Overview", icon: LayoutDashboard },
-  { href: "/dashboard/team", label: "Team", icon: Users, capability: "members.view" },
+  { href: "/dashboard/properties", label: "Properties", icon: Home, capability: "properties.view" },
+  { href: "/dashboard/units", label: "Units", icon: DoorOpen, capability: "properties.view" },
+  { href: "/dashboard/tenants", label: "Tenants", icon: Users, capability: "tenants.view" },
+  { href: "/dashboard/leases", label: "Leases", icon: FileText, capability: "leases.view" },
+  { href: "/dashboard/team", label: "Team", icon: UserCog, capability: "members.view" },
   { href: "/dashboard/audit", label: "Audit log", icon: ScrollText, capability: "audit.view" },
   {
     href: "/dashboard/settings",

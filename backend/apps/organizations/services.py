@@ -18,7 +18,7 @@ from apps.core.exceptions import BusinessRuleViolation
 from apps.core.modules import registry
 
 from .models import Invitation, Membership, Organization, hash_token
-from .roles import Role
+from .roles import DEFAULT_ACCESS_SCOPE, AccessScope, Role
 from .tasks import send_invitation_email
 
 
@@ -100,9 +100,21 @@ def update_membership(
     role: str | None = None,
     extra_permissions: list[str] | None = None,
     revoked_permissions: list[str] | None = None,
+    access_scope: str | None = None,
 ) -> Membership:
     membership = Membership.objects.select_for_update().get(pk=membership.pk)
     _assert_can_manage(actor, membership, role)
+
+    if access_scope is None and role is not None and role != membership.role:
+        access_scope = DEFAULT_ACCESS_SCOPE[role]  # a role change resets scope to its default
+    if role == Role.OWNER or (role is None and membership.is_owner):
+        access_scope = AccessScope.ORGANIZATION
+    if (
+        access_scope == AccessScope.ORGANIZATION
+        and access_scope != membership.access_scope
+        and not actor.has_organization_scope
+    ):
+        raise BusinessRuleViolation("You cannot grant wider record access than you have.")
 
     if extra_permissions is not None:
         extra_permissions = validate_capability_keys(extra_permissions)
@@ -125,6 +137,7 @@ def update_membership(
         ("role", role),
         ("extra_permissions", extra_permissions),
         ("revoked_permissions", revoked_permissions),
+        ("access_scope", access_scope),
     ):
         if value is not None and getattr(membership, field) != value:
             changes[field] = {"from": getattr(membership, field), "to": value}
@@ -268,6 +281,7 @@ def accept_invitation(*, request, user, token: str) -> Membership:
         membership.status = Membership.Status.ACTIVE
         membership.extra_permissions = []
         membership.revoked_permissions = []
+        membership.access_scope = DEFAULT_ACCESS_SCOPE[invitation.role]
         membership.invited_by = invitation.invited_by
         membership.joined_at = timezone.now()
         membership.save()

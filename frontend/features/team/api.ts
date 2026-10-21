@@ -3,7 +3,7 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tansta
 import { useOrganization } from "@/components/providers/organization-provider";
 import { api } from "@/lib/api/client";
 import { queryKeys } from "@/lib/query-keys";
-import type { CapabilityCatalog, Invitation, Membership, Paginated, Role } from "@/types/api";
+import type { AccessScope, CapabilityCatalog, Invitation, Membership, Paginated, Role } from "@/types/api";
 
 export type MemberListParams = {
   search?: string;
@@ -66,6 +66,7 @@ export function useInvitationAction() {
 
 export interface MemberUpdate {
   role?: Role;
+  access_scope?: AccessScope;
   extra_permissions?: string[];
   revoked_permissions?: string[];
 }

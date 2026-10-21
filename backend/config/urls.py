@@ -9,6 +9,10 @@ api_v1 = [
     path("auth/", include("apps.accounts.urls")),
     path("", include("apps.organizations.urls")),
     path("", include("apps.audit.urls")),
+    path("", include("apps.documents.urls")),
+    path("", include("apps.properties.urls")),
+    path("", include("apps.tenants.urls")),
+    path("", include("apps.leases.urls")),
     path("schema/", SpectacularAPIView.as_view(), name="schema"),
     path("docs/", SpectacularSwaggerView.as_view(url_name="schema"), name="api-docs"),
 ]
