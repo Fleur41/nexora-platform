@@ -1,0 +1,69 @@
+@import "tailwindcss";
+
+/* Nexora design tokens. Deep navy primary, emerald accent, neutral surfaces. */
+:root {
+  --background: #ffffff;
+  --foreground: #0b1730;
+  --card: #ffffff;
+  --card-foreground: #0b1730;
+  --popover: #ffffff;
+  --popover-foreground: #0b1730;
+  --primary: #0b2545;
+  --primary-foreground: #ffffff;
+  --secondary: #eef2f7;
+  --secondary-foreground: #0b2545;
+  --muted: #f1f4f8;
+  --muted-foreground: #5b6779;
+  --accent: #0f9d76;
+  --accent-foreground: #ffffff;
+  --accent-strong: #0a7a5b;
+  --warning: #d97706;
+  --warning-strong: #b45309;
+  --destructive: #c62828;
+  --destructive-foreground: #ffffff;
+  --border: #e2e7ee;
+  --input: #d5dce6;
+  --ring: #0f9d76;
+  --sidebar: #0b2545;
+  --sidebar-foreground: #c9d5e6;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent-strong: var(--accent-strong);
+  --color-warning: var(--warning);
+  --color-warning-strong: var(--warning-strong);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+@layer base {
+  * {
+    border-color: var(--border);
+  }
+  body {
+    background: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+  }
+}

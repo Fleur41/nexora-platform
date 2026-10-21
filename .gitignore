@@ -1,0 +1,21 @@
+.env
+.env.local
+.idea/
+.DS_Store
+# backend
+backend/.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+backend/staticfiles/
+backend/media/
+# frontend
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+frontend/coverage/
+frontend/next-env.d.ts
+frontend/*.tsbuildinfo
+frontend/test-results/
+frontend/playwright-report/
