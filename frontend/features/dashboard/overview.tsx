@@ -100,7 +100,7 @@ export function DashboardOverview() {
       )}
 
       {(can("billing.view") || can("deposits.view") || can("payments.view")) && (
-        <div className="mb-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+        <div className="mb-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {can("billing.view") && (
             <>
               <Stat
