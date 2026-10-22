@@ -450,7 +450,7 @@ export interface InvoiceLine {
 
 export interface LedgerEntry {
   id: UUID;
-  entry_type: "invoice" | "credit" | "void" | "payment";
+  entry_type: "invoice" | "credit" | "void" | "payment" | "allocation" | "payment_reversal" | "refund";
   amount: Money;
   invoice: UUID | null;
   invoice_number: string | null;
@@ -574,4 +574,153 @@ export interface DepositTransaction {
 
 export interface DepositDetail extends DepositSummary {
   transactions: DepositTransaction[];
+}
+
+// --- Payments ----------------------------------------------------------------------
+
+export type PaymentProvider = "mpesa_paybill" | "mpesa_till" | "bank" | "cash" | "other";
+export type PaymentMethodKind = "mpesa" | "bank" | "cash" | "cheque" | "other";
+export type IntegrationStatus = "not_configured" | "credentials_saved" | "verified" | "failed";
+
+export interface PaymentConfiguration {
+  id: UUID;
+  provider: PaymentProvider;
+  method: PaymentMethodKind;
+  display_name: string;
+  property: UUID | null;
+  property_name: string | null;
+  shortcode: string;
+  account_reference_hint: string;
+  bank_name: string;
+  bank_branch: string;
+  account_name: string;
+  account_number: string;
+  instructions: string;
+  currency: string;
+  is_enabled: boolean;
+  valid_from: string | null;
+  valid_to: string | null;
+  environment: "sandbox" | "production";
+  integration_status: IntegrationStatus;
+  integration_message: string;
+  integration_checked_at: string | null;
+  c2b_registered_at: string | null;
+  has_credentials: boolean;
+  has_passkey: boolean;
+  callback_urls: { confirmation: string; validation: string; stk_callback: string } | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export type PaymentSource = "manual" | "mpesa_c2b" | "mpesa_stk" | "bank_import";
+
+export interface Payment {
+  id: UUID;
+  receipt_number: string;
+  lease: UUID | null;
+  lease_reference: string | null;
+  tenant: UUID | null;
+  tenant_name: string | null;
+  unit_number: string | null;
+  property_name: string | null;
+  method: PaymentMethodKind;
+  configuration_name: string;
+  amount: Money;
+  unallocated: Money;
+  received_on: string;
+  reference: string;
+  payer_name: string;
+  payer_phone: string;
+  account_reference: string;
+  status: "completed" | "reversed";
+  source: PaymentSource;
+  is_matched: boolean;
+  created_at: string;
+}
+
+export interface PaymentDetail extends Payment {
+  configuration_snapshot: Record<string, string | null>;
+  notes: string;
+  allocations: { id: UUID; invoice: UUID; invoice_number: string; amount: Money; is_reversed: boolean; created_at: string }[];
+  refunds: {
+    id: UUID;
+    amount: Money;
+    refunded_on: string;
+    method: PaymentMethodKind;
+    reference: string;
+    reason: string;
+    created_by_name: string;
+    created_at: string;
+  }[];
+  created_by_name: string;
+  matched_at: string | null;
+  reversed_at: string | null;
+  reversed_by_name: string;
+  reversal_reason: string;
+}
+
+export interface PaymentsSummary {
+  currency: string;
+  collected_this_month: Money;
+  unmatched_count: number;
+  unmatched_amount: Money;
+  credit_held: Money;
+}
+
+export interface PaymentRequest {
+  id: UUID;
+  lease: UUID;
+  lease_reference: string;
+  tenant_name: string;
+  phone: string;
+  amount: Money;
+  status: "pending" | "completed" | "failed" | "expired" | "needs_review";
+  result_description: string;
+  payment: UUID | null;
+  receipt_number: string | null;
+  created_at: string;
+}
+
+export interface StatementImport {
+  id: UUID;
+  configuration: UUID;
+  configuration_name: string;
+  file_name: string;
+  rows_total: number;
+  rows_created: number;
+  rows_matched: number;
+  rows_duplicate: number;
+  rows_skipped: number;
+  errors: string[];
+  created_by_name: string;
+  created_at: string;
+}
+
+export interface ProviderEvent {
+  id: UUID;
+  event_type: string;
+  external_id: string;
+  status: "processed" | "duplicate" | "rejected" | "failed";
+  message: string;
+  receipt_number: string | null;
+  created_at: string;
+}
+
+export interface PaymentInstructions {
+  lease: UUID;
+  account_reference: string;
+  methods: {
+    id: UUID;
+    provider: PaymentProvider;
+    display_name: string;
+    shortcode: string;
+    account_number_to_use: string;
+    account_reference_hint: string;
+    bank_name: string;
+    bank_branch: string;
+    account_name: string;
+    account_number: string;
+    instructions: string;
+    supports_payment_request: boolean;
+  }[];
 }

@@ -368,6 +368,10 @@ class LedgerEntry(OrganizationScopedModel):
         CREDIT = "credit", "Credit"
         VOID = "void", "Invoice voided"
         PAYMENT = "payment", "Payment"
+        # Moves a payment's unallocated credit onto an invoice (nets to zero on the lease).
+        ALLOCATION = "allocation", "Credit applied"
+        PAYMENT_REVERSAL = "payment_reversal", "Payment reversed"
+        REFUND = "refund", "Credit refunded"
 
     lease = models.ForeignKey(
         "leases.Lease", on_delete=models.PROTECT, related_name="ledger_entries"
@@ -379,6 +383,13 @@ class LedgerEntry(OrganizationScopedModel):
     amount = models.DecimalField(max_digits=14, decimal_places=2)
     invoice = models.ForeignKey(
         Invoice, null=True, blank=True, on_delete=models.PROTECT, related_name="ledger_entries"
+    )
+    payment = models.ForeignKey(
+        "payments.Payment",
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="ledger_entries",
     )
     reference = models.CharField(max_length=32, blank=True)
     effective_date = models.DateField()

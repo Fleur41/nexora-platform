@@ -59,6 +59,18 @@ const LABELS: Record<string, string> = {
   "deposit.deduction": "Deposit deduction",
   "deposit.refund": "Deposit refunded",
   "deposit.reversal": "Deposit transaction reversed",
+  "payment.recorded": "Payment recorded",
+  "payment.matched": "Payment matched to a lease",
+  "payment.credit_applied": "Credit applied to invoices",
+  "payment.reversed": "Payment reversed",
+  "payment.refunded": "Credit refunded",
+  "payment.stk_requested": "M-Pesa payment requested",
+  "payment.statement_imported": "Bank statement imported",
+  "payment_settings.created": "Payment method added",
+  "payment_settings.updated": "Payment method updated",
+  "payment_settings.credentials_saved": "M-Pesa credentials saved",
+  "payment_settings.connection_tested": "M-Pesa connection tested",
+  "payment_settings.c2b_registered": "M-Pesa callback URLs registered",
 };
 
 export function describeAction(entry: AuditLogEntry): string {

@@ -2,6 +2,7 @@
 
 import {
   ArrowRight,
+  Banknote,
   CalendarClock,
   DoorOpen,
   FileWarning,
@@ -28,6 +29,7 @@ import { ErrorState } from "@/components/ui/states";
 import { useAuditLogs } from "@/features/audit/api";
 import { useBillingSummary } from "@/features/billing/api";
 import { useDepositTotals } from "@/features/deposits/api";
+import { usePaymentsSummary } from "@/features/payments/api";
 import { useLeases } from "@/features/leases/api";
 import { useProperties, useUnitSummary } from "@/features/properties/api";
 import { describeAction } from "@/features/audit/describe";
@@ -50,6 +52,7 @@ export function DashboardOverview() {
   const expiring = useLeases({ expiring_within_days: 60, page_size: 5 }, can("leases.view"));
   const billing = useBillingSummary(can("billing.view"));
   const deposits = useDepositTotals(can("deposits.view"));
+  const payments = usePaymentsSummary(can("payments.view"));
 
   return (
     <>
@@ -96,8 +99,8 @@ export function DashboardOverview() {
         </div>
       )}
 
-      {(can("billing.view") || can("deposits.view")) && (
-        <div className="mb-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      {(can("billing.view") || can("deposits.view") || can("payments.view")) && (
+        <div className="mb-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
           {can("billing.view") && (
             <>
               <Stat
@@ -123,6 +126,20 @@ export function DashboardOverview() {
                 loading={billing.isPending}
               />
             </>
+          )}
+          {can("payments.view") && (
+            <Stat
+              icon={Banknote}
+              label="Collected this month"
+              value={formatMoney(payments.data?.collected_this_month ?? 0, org.currency)}
+              hint={
+                payments.data?.unmatched_count
+                  ? `${plural(payments.data.unmatched_count, "payment")} to reconcile`
+                  : undefined
+              }
+              loading={payments.isPending}
+              href="/dashboard/payments"
+            />
           )}
           {can("deposits.view") && (
             <Stat

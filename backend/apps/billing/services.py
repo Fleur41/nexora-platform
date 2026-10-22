@@ -144,6 +144,13 @@ def _post_invoice(
     return invoice
 
 
+def _apply_credit(request, lease, actor) -> None:
+    """Settle new invoices from credit the tenant already holds (e.g. an overpayment)."""
+    from apps.payments.services import apply_available_credit
+
+    apply_available_credit(request=request, lease=lease, actor=actor)
+
+
 def preview_billing(*, organization, month: date) -> MonthDraft:
     return draft_month(organization, month)
 
@@ -175,6 +182,7 @@ def run_billing(
                         issue_date=issue_date,
                     )
                 )
+                _apply_credit(request, invoice_draft.lease, actor)
         except IntegrityError:
             skipped.append(
                 f"{invoice_draft.lease.reference}: already billed by a concurrent run; skipped."
@@ -265,6 +273,7 @@ def create_one_off_invoice(
     if notes:
         invoice.notes = notes
         invoice.save(update_fields=["notes", "updated_at"])
+    _apply_credit(request, lease, request.user)
     record_event(
         request,
         "invoice.created",

@@ -41,6 +41,7 @@ INSTALLED_APPS = [
     "apps.utilities",
     "apps.billing",
     "apps.deposits",
+    "apps.payments",
 ]
 
 MIDDLEWARE = [
@@ -178,6 +179,10 @@ SPECTACULAR_SETTINGS = {
         "InvitationStatusEnum": "apps.organizations.models.Invitation.Status",
         "OrganizationStatusEnum": "apps.organizations.models.Organization.Status",
         "MeterUtilityEnum": "apps.utilities.models.Meter.Utility",
+        "PaymentMethodEnum": "apps.payments.models.PaymentMethod",
+        "PaymentStatusEnum": "apps.payments.models.Payment.Status",
+        "PaymentRequestStatusEnum": "apps.payments.models.PaymentRequest.Status",
+        "ProviderEventStatusEnum": "apps.payments.models.ProviderEvent.Status",
     },
 }
 
@@ -201,6 +206,10 @@ CELERY_BEAT_SCHEDULE = {
         "task": "apps.billing.tasks.run_scheduled_billing_for_all",
         "schedule": 60 * 60 * 6,  # several times a day; each org bills at most once a month
     },
+    "expire-stale-mpesa-requests": {
+        "task": "apps.payments.tasks.expire_stale_payment_requests",
+        "schedule": 60 * 10,
+    },
     "sync-unit-occupancy": {
         "task": "apps.leases.tasks.sync_unit_occupancy",
         "schedule": 60 * 60,  # hourly; idempotent
@@ -215,6 +224,18 @@ EMAIL_HOST_USER = env("EMAIL_HOST_USER", default="")
 EMAIL_HOST_PASSWORD = env("EMAIL_HOST_PASSWORD", default="")
 EMAIL_USE_TLS = env.bool("EMAIL_USE_TLS", default=False)
 DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", default="Nexora <no-reply@nexora.local>")
+
+# --- Payments & integrations ----------------------------------------------
+# Fernet key(s) for encrypting integration secrets at rest. Comma-separate to rotate.
+NEXORA_FIELD_ENCRYPTION_KEY = env("NEXORA_FIELD_ENCRYPTION_KEY", default="")
+# Public HTTPS base URL of this API (e.g. https://api.nexora.co.ke), used to build the
+# callback URLs registered with Safaricom. Callbacks cannot reach localhost.
+NEXORA_PUBLIC_API_URL = env("NEXORA_PUBLIC_API_URL", default="").rstrip("/")
+# Optional allowlist of Safaricom callback source IPs. Empty = accept from anywhere (the
+# per-configuration secret in the callback URL still authenticates the sender).
+MPESA_CALLBACK_ALLOWED_IPS = env.list("MPESA_CALLBACK_ALLOWED_IPS", default=[])
+MPESA_TIMEOUT_SECONDS = env.int("MPESA_TIMEOUT_SECONDS", default=20)
+STATEMENT_IMPORT_MAX_ROWS = env.int("STATEMENT_IMPORT_MAX_ROWS", default=5000)
 
 # --- Invitations -----------------------------------------------------------
 INVITATION_TTL_DAYS = env.int("INVITATION_TTL_DAYS", default=7)

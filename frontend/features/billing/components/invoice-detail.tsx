@@ -32,7 +32,15 @@ import type { InvoiceDetail as Detail } from "@/types/api";
 
 import { InvoiceStatusBadge } from "./invoice-status";
 
-const ENTRY_LABEL = { invoice: "Invoice issued", credit: "Credit", void: "Voided", payment: "Payment" } as const;
+const ENTRY_LABEL = {
+  invoice: "Invoice issued",
+  credit: "Credit",
+  void: "Voided",
+  payment: "Payment",
+  allocation: "Credit applied",
+  payment_reversal: "Payment reversed",
+  refund: "Credit refunded",
+} as const;
 
 export function InvoiceDetail() {
   const { id } = useParams<{ id: string }>();
@@ -169,7 +177,7 @@ export function InvoiceDetail() {
                     <div>
                       <p>
                         {ENTRY_LABEL[e.entry_type]}
-                        {e.entry_type === "credit" && ` ${e.reference}`}
+                        {e.entry_type !== "invoice" && e.reference && ` ${e.reference}`}
                       </p>
                       <p className="text-xs text-muted-foreground">
                         {formatDay(e.effective_date)}

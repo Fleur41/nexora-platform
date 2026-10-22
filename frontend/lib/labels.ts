@@ -1,5 +1,8 @@
 import type {
   BillingFrequency,
+  IntegrationStatus,
+  PaymentProvider,
+  PaymentSource,
   DepositKind,
   InvoiceKind,
   MeterUtility,
@@ -127,4 +130,29 @@ export const PAYMENT_METHOD: Record<Exclude<PaymentMethod, "">, string> = {
   cash: "Cash",
   cheque: "Cheque",
   other: "Other",
+};
+
+export const PAYMENT_PROVIDER: Record<PaymentProvider, string> = {
+  mpesa_paybill: "M-Pesa Paybill",
+  mpesa_till: "M-Pesa Till (Buy Goods)",
+  bank: "Bank account",
+  cash: "Cash",
+  other: "Other",
+};
+
+export const PAYMENT_SOURCE: Record<PaymentSource, string> = {
+  manual: "Recorded manually",
+  mpesa_c2b: "M-Pesa paybill/till",
+  mpesa_stk: "M-Pesa request",
+  bank_import: "Bank statement",
+};
+
+export const INTEGRATION_STATUS: Record<
+  IntegrationStatus,
+  { label: string; variant: "muted" | "warning" | "accent" | "destructive" }
+> = {
+  not_configured: { label: "Not connected", variant: "muted" },
+  credentials_saved: { label: "Not verified", variant: "warning" },
+  verified: { label: "Connected", variant: "accent" },
+  failed: { label: "Connection failed", variant: "destructive" },
 };

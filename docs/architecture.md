@@ -211,3 +211,53 @@ them.
 organization with `auto_generate` on, once the organization-local date reaches `generate_day`, it
 runs the current month at most once (`trigger=scheduled`). Thanks to dedupe keys, even a duplicate
 run cannot double-bill.
+
+## Payments (Phase 4)
+
+### Payment methods
+
+`PaymentConfiguration` holds a landlord's own method (M-Pesa paybill/till, bank, cash, other),
+organization-wide or for one property (a property's methods replace the organization's for its
+tenants). Tenant-facing details live there. Provider secrets live in `IntegrationCredential`,
+encrypted with `core.crypto.EncryptedTextField` (Fernet, `NEXORA_FIELD_ENCRYPTION_KEY`, rotation
+via `MultiFernet`). `integration_status` only becomes `verified` after a successful OAuth call.
+Each payment stores a `configuration_snapshot`, so editing a method never rewrites history.
+
+### Payments and allocation
+
+`Payment` is immutable money received with a receipt number (`RCT-`). It's unmatched while
+`lease` is null. Ledger representation per lease (`billing.LedgerEntry`, now with a `payment` FK):
+
+| Event | Entries |
+| ----- | ------- |
+| Payment A allocated aᵢ to invoices | `−aᵢ` (invoice i) each, and `−(A−Σaᵢ)` (no invoice) as credit held |
+| Credit c applied to invoice I | `+c` (no invoice), `−c` (invoice I) (type `allocation`) |
+| Refund f of credit | `+f` (no invoice) (type `refund`) |
+| Reversal | the exact opposite of every entry of the payment (type `payment_reversal`) |
+
+So a lease balance stays the sum of its entries, an invoice's amount due is the sum of entries
+pointing at it, and credit held is minus the sum of no-invoice payment entries. Default allocation
+is oldest due first. Credit is applied automatically after each billing run and one-off invoice.
+All movements lock the lease row. Invoices with payments against them can't be voided.
+
+Uniqueness: `(organization, source, external_id)` for provider transactions and import rows, and
+`(organization, method, reference)` for live (non-reversed) payments.
+
+### M-Pesa (`payments/mpesa.py`, `payments/providers/mpesa.py`)
+
+`DarajaClient` covers OAuth, STK push, STK query and C2B URL registration over urllib, with
+timeouts and staff-safe error messages (`DarajaError`). Callbacks arrive at
+`/api/v1/integrations/mpesa/<secret-token>/{c2b/confirmation,c2b/validation,stk/callback}/`; the token
+is stored encrypted plus hashed for lookup, and optional IP allowlisting applies. Each callback is
+saved as a `ProviderEvent` (phones masked). A partial unique index allows only one *processed*
+event per transaction, so repeats become `duplicate`. STK results are re-verified with the STK
+query API and amount-checked before a payment is recorded; mismatches go to *needs review*. See
+[mpesa.md](mpesa.md).
+
+### Bank statements
+
+Bank account numbers alone don't reveal incoming money. `payments/imports.py` reads CSV
+statements (flexible headers; DD/MM/YYYY and ISO dates). Credit rows become payments with a SHA-256
+fingerprint as `external_id`, so re-imports are no-ops. Rows naming exactly one lease reference
+(`LSE-…`) are matched; the rest go to the reconciliation queue. No bank API is integrated yet; the
+import is the supported path.

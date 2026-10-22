@@ -4,9 +4,11 @@ Nexora is a multi-tenant, all-in-one business management platform. Property mana
 first business module; the shared platform layer (accounts, organizations, roles, audit) is built
 so future modules such as POS, inventory and finance can plug into it.
 
-> **Status: Phases 1–3 are complete**: the platform foundation; properties, units, tenants,
-> leases and occupancy; and billing (charges, invoices, meters, shared costs, tenant ledgers and
-> deposits). Payments, maintenance and reporting are **not built yet**. See
+> **Status: Phases 1–4 are complete**: the platform foundation; properties, units, tenants,
+> leases and occupancy; billing (charges, invoices, meters, shared costs, ledgers, deposits); and
+> payments (landlord payment methods, receipts, allocation, reconciliation, bank imports and an
+> M-Pesa Daraja integration; see [docs/mpesa.md](docs/mpesa.md) for activation). Maintenance,
+> notifications and reporting are **not built yet**. See
 > [docs/roadmap.md](docs/roadmap.md) for the phase checklist and known limitations.
 
 | Layer    | Stack                                                                          |
@@ -32,6 +34,7 @@ backend/                Django project (owns all business rules, auth and data a
   apps/billing/         charge types and rules, billing engine, invoices, ledger, shared costs
   apps/utilities/       meters and readings
   apps/deposits/        security deposit ledger (a liability, never income)
+  apps/payments/        payment methods, payments, allocation, receipts, M-Pesa, bank imports
   tests/                API, permission and isolation tests
 frontend/               Next.js app; talks to Django only through lib/api/client.ts
   app/                  routes: (public) landing, (auth) pages, onboarding, dashboard
@@ -147,6 +150,21 @@ CI (`.github/workflows/ci.yml`) runs the same checks plus `manage.py check --dep
    received, deductions and refunds separately from rent (held deposits are a liability).
 7. **Charges → Automatic billing** generates each month's invoices on a chosen day (Celery beat).
 
+### Manual walkthrough of Phase 4
+
+1. **Payment settings → Add payment method**: an M-Pesa paybill (or till) and a bank account. A
+   property can have its own methods, which replace the organization-wide ones for its tenants.
+2. On a lease: **Record payment** (partial or full). It's applied to the oldest invoices first;
+   any extra becomes credit and is used automatically when the next invoices are generated.
+   Open **Payments → RCT-…** → **Receipt** to print or save a PDF.
+3. **Payments → Bank imports**: upload a CSV statement. Lines mentioning a lease number are
+   applied automatically; others appear under **Unmatched** to match by hand. Re-importing the
+   same file adds nothing.
+4. **Reverse** a payment (e.g. a bounced cheque) or **refund** credit. Owner-only by default, with
+   a reason, and audited.
+5. M-Pesa automation (paybill callbacks and STK prompts) needs Daraja credentials and a public URL:
+   follow [docs/mpesa.md](docs/mpesa.md).
+
 ## Security model (summary)
 
 - Session cookies (HttpOnly, SameSite=Lax) plus CSRF tokens. The browser calls `/api/*` on the
@@ -166,6 +184,11 @@ CI (`.github/workflows/ci.yml`) runs the same checks plus `manage.py check --dep
   reason, an audit entry and a ledger movement. A unique database index on each line's dedupe
   key makes double billing impossible even under concurrent or repeated runs.
 - Voids, credits, deposit deductions and refunds are owner-only by default (delegable per member).
+- Payments are immutable; reversals and refunds are separate audited entries. A unique index on
+  provider transaction ids and on live payment references prevents recording the same money twice.
+- Provider secrets (Daraja consumer secret, passkey) are encrypted at rest with
+  `NEXORA_FIELD_ENCRYPTION_KEY` and are never returned by the API. Callback URLs carry a
+  per-configuration secret; every callback is stored and processed at most once per transaction.
 - Platform administrators get **no** implicit access to organization data.
 - Audit log entries are append-only (model, queryset and admin all refuse updates and deletes).
 - Login, registration, password reset and invitation endpoints are rate-limited and CSRF-protected,
