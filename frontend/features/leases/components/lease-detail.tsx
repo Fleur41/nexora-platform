@@ -46,6 +46,7 @@ import {
   UnitChargesCard,
 } from "@/features/billing/components/lease-account";
 import { DepositCard } from "@/features/deposits/components/deposit-card";
+import { PaymentInstructionsCard } from "@/features/payments/components/lease-payments";
 import { DocumentsPanel } from "@/features/documents/components/documents-panel";
 import {
   useAddRentTerm,
@@ -324,6 +325,9 @@ export function LeaseDetail() {
           </Card>
           {can("deposits.view") && l.status !== "cancelled" && (
             <DepositCard lease={l} />
+          )}
+          {can("payments.view") && l.status === "active" && (
+            <PaymentInstructionsCard lease={l} />
           )}
           {can("billing.view") && l.status === "active" && (
             <UnitChargesCard lease={l} />

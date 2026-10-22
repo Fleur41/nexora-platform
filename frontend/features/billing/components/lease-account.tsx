@@ -23,12 +23,21 @@ import { Input, NativeSelect } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ErrorState } from "@/components/ui/states";
 import { useChargeTypes, useCreateOneOffInvoice, useLeaseAccount, useResolvedCharges } from "@/features/billing/api";
+import { LeasePaymentActions } from "@/features/payments/components/lease-payments";
 import { errorMessage } from "@/lib/api/errors";
 import { RULE_METHOD } from "@/lib/labels";
 import { formatDay, formatMoney } from "@/lib/utils";
 import type { Lease } from "@/types/api";
 
-const ENTRY = { invoice: "Invoice", credit: "Credit", void: "Void", payment: "Payment" } as const;
+const ENTRY = {
+  invoice: "Invoice",
+  credit: "Credit",
+  void: "Void",
+  payment: "Payment",
+  allocation: "Credit applied",
+  payment_reversal: "Payment reversed",
+  refund: "Credit refunded",
+} as const;
 
 /** Balance and statement for a lease. */
 export function LeaseAccountCard({ lease }: { lease: Lease }) {
@@ -43,13 +52,16 @@ export function LeaseAccountCard({ lease }: { lease: Lease }) {
       <CardHeader className="flex-row items-start justify-between gap-4">
         <div>
           <CardTitle>Account</CardTitle>
-          <CardDescription>Everything billed and credited on this lease.</CardDescription>
+          <CardDescription>Everything billed, paid and credited on this lease.</CardDescription>
         </div>
-        {canRaise && (
-          <Button variant="outline" size="sm" onClick={() => setRaising(true)}>
-            <FilePlus2 /> One-off invoice
-          </Button>
-        )}
+        <div className="flex flex-wrap justify-end gap-2 [&_button]:h-9 [&_button]:px-3">
+          <LeasePaymentActions lease={lease} />
+          {canRaise && (
+            <Button variant="outline" size="sm" onClick={() => setRaising(true)}>
+              <FilePlus2 /> One-off invoice
+            </Button>
+          )}
+        </div>
       </CardHeader>
       <CardContent>
         {account.isPending ? (
@@ -78,12 +90,16 @@ export function LeaseAccountCard({ lease }: { lease: Lease }) {
                   <li key={e.id} className="flex items-center justify-between gap-3 py-2">
                     <div className="min-w-0">
                       <p className="truncate">
-                        {e.invoice ? (
-                          <Link href={`/dashboard/billing/invoices/${e.invoice}`} className="hover:underline">
-                            {ENTRY[e.entry_type]} {e.invoice_number}
-                          </Link>
-                        ) : (
-                          ENTRY[e.entry_type]
+                        {ENTRY[e.entry_type]}
+                        {/* Payments carry their receipt number; invoices/credits their own reference. */}
+                        {e.reference && e.reference !== e.invoice_number && ` ${e.reference}`}
+                        {e.invoice && (
+                          <>
+                            {e.reference && e.reference !== e.invoice_number ? " → " : " "}
+                            <Link href={`/dashboard/billing/invoices/${e.invoice}`} className="hover:underline">
+                              {e.invoice_number}
+                            </Link>
+                          </>
                         )}
                       </p>
                       <p className="text-xs text-muted-foreground">

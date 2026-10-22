@@ -79,10 +79,32 @@ rental income), #14 (no double counting: credits/voids net through one ledger), 
 and repeated billing cannot duplicate), #18 (financial corrections create audit records), plus
 #1/#15 for all billing records.
 
-## Phase 4 — Payments
-Per-organization payment configurations (with history), manual payments, allocations, receipts,
-reversals, reconciliation queue, Daraja adapter (sandbox), bank statement import, encrypted
-integration credentials.
+## Phase 4 — Payments ✅ complete
+
+- [x] Landlord-specific payment methods (M-Pesa paybill/till, bank, cash, other) with property
+      overrides, tenant-facing instructions, validity dates and enable/disable
+- [x] Encrypted provider credentials (Fernet, rotatable), write-only via the API
+- [x] Payments with receipts, oldest-first or manual allocation, partial payments, overpayment
+      credit auto-applied to later invoices, refunds of credit, full reversals; all through the
+      lease ledger with audit events and row locks
+- [x] Duplicate protection: unique provider/import ids and live payment references
+- [x] Configuration snapshots on payments (settings changes never rewrite history)
+- [x] Reconciliation queue for unmatched payments with manual matching
+- [x] Bank CSV statement import with fingerprint de-duplication and automatic lease matching
+- [x] M-Pesa Daraja: OAuth connection test, C2B URL registration, idempotent C2B confirmations
+      matched by lease/unit account, STK push with server-side STK-query verification, per-config
+      secret callback URLs, optional IP allowlist, masked event storage, stale-request expiry
+- [x] Frontend: Payments (list, unmatched, M-Pesa requests, bank imports), payment detail with
+      apply credit/refund/reverse, printable receipts, Payment settings with M-Pesa connection
+      panel, lease page record payment / M-Pesa prompt / payment instructions, overview collections
+- [x] Tests: 174 backend, 37 frontend unit, 5 Playwright (new: payments flow)
+
+Covered requirement tests: #4 (partial payments), #5 (repeated callbacks), #6 (no cross-organization
+allocation), #7 (different M-Pesa/bank arrangements per landlord), #8 (settings changes preserve
+history), #19 (provider failures handled safely), plus #1/#15/#18 for payments.
+
+**Not live yet:** M-Pesa has only been exercised against a simulated Daraja. Real sandbox/production
+use needs the landlord's Daraja credentials and a public HTTPS URL ([mpesa.md](mpesa.md)).
 
 ## Phase 5 — Maintenance and operations
 Maintenance requests and work orders, inspections, move-out workflow, deposit settlement,
@@ -98,9 +120,11 @@ support access, security review, accessibility audit, deployment and backup runb
 
 ## Known limitations (current)
 
-- Payments, maintenance and reports are not built yet; the navigation lists only built pages.
-  Until Phase 4, balances only fall through credits and voids. Recording tenant payments
-  (M-Pesa, bank, cash) and allocating them to invoices comes next.
+- Maintenance, notifications, the tenant portal and reports are not built yet; the navigation
+  lists only built pages.
+- M-Pesa integration is untested against Safaricom's real APIs (needs credentials); no direct bank
+  API integration (CSV import only); receipts are printable pages, not emailed/SMSed yet (Phase 5).
+- Payment allocation can't be moved between invoices after the fact; reverse and re-record instead.
 - Invoices are not yet emailed/SMSed to tenants or downloadable as PDF (Phases 5–6).
 - Shared costs split evenly per occupied unit; weighting by unit size or meter is not supported yet.
 - Proration is by calendar day for all charges; there is no per-charge "no proration" option yet.

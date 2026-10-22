@@ -20,3 +20,7 @@ STORAGES = {
     "private": {"BACKEND": "django.core.files.storage.InMemoryStorage"},
     "staticfiles": {"BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"},
 }
+
+# Fixed test-only key; never use outside tests.
+NEXORA_FIELD_ENCRYPTION_KEY = "dGVzdC1rZXktdGVzdC1rZXktdGVzdC1rZXktdGVzdDE="
+NEXORA_PUBLIC_API_URL = "https://api.nexora.test"

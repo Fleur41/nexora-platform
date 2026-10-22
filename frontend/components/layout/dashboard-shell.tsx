@@ -77,8 +77,8 @@ function ShellLayout({ user, children }: { user: User; children: React.ReactNode
   const [mobileOpen, setMobileOpen] = React.useState(false);
 
   return (
-    <div className="flex min-h-screen bg-muted/40">
-      <aside className="hidden w-64 shrink-0 flex-col bg-sidebar lg:flex">
+    <div className="flex min-h-screen bg-muted/40 print:bg-white">
+      <aside className="hidden w-64 shrink-0 flex-col bg-sidebar lg:flex print:hidden">
         <SidebarContent />
       </aside>
 
@@ -99,7 +99,7 @@ function ShellLayout({ user, children }: { user: User; children: React.ReactNode
       )}
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-30 flex h-16 items-center gap-3 border-b bg-background/95 px-4 backdrop-blur sm:px-6">
+        <header className="sticky top-0 z-30 flex h-16 items-center gap-3 border-b bg-background/95 px-4 backdrop-blur sm:px-6 print:hidden">
           <Button
             variant="ghost"
             size="icon"
@@ -130,8 +130,9 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
       <OrganizationSwitcher />
       <nav aria-label="Main" className="flex flex-col gap-1">
         {items.map((item) => {
-          const active =
-            item.href === "/dashboard" ? pathname === item.href : pathname.startsWith(item.href);
+          // Exact match for links that are prefixes of other links (e.g. /dashboard/settings).
+          const exact = items.some((other) => other !== item && other.href.startsWith(`${item.href}/`));
+          const active = exact ? pathname === item.href : pathname.startsWith(item.href);
           return (
             <Link
               key={item.href}
