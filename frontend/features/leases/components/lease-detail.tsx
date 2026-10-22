@@ -1,7 +1,14 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { ArrowLeft, CalendarPlus, CheckCircle2, LogOut, Trash2, XCircle } from "lucide-react";
+import {
+  ArrowLeft,
+  CalendarPlus,
+  CheckCircle2,
+  LogOut,
+  Trash2,
+  XCircle,
+} from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import * as React from "react";
@@ -13,7 +20,13 @@ import { useOrganization } from "@/components/providers/organization-provider";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import {
   Dialog,
@@ -28,11 +41,30 @@ import { Input, NativeSelect } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ErrorState } from "@/components/ui/states";
 import { LeaseStatusBadge } from "@/components/ui/status";
+import {
+  LeaseAccountCard,
+  UnitChargesCard,
+} from "@/features/billing/components/lease-account";
+import { DepositCard } from "@/features/deposits/components/deposit-card";
 import { DocumentsPanel } from "@/features/documents/components/documents-panel";
-import { useAddRentTerm, useLease, useLeaseAction, useRemoveRentTerm } from "@/features/leases/api";
+import {
+  useAddRentTerm,
+  useLease,
+  useLeaseAction,
+  useRemoveRentTerm,
+} from "@/features/leases/api";
 import { ApiError, errorMessage } from "@/lib/api/errors";
-import { applyServerErrors, bannerError, moneyString, optionalText } from "@/lib/forms";
-import { BILLING_FREQUENCY, POST_LEASE_UNIT_STATUSES, UNIT_STATUS } from "@/lib/labels";
+import {
+  applyServerErrors,
+  bannerError,
+  moneyString,
+  optionalText,
+} from "@/lib/forms";
+import {
+  BILLING_FREQUENCY,
+  POST_LEASE_UNIT_STATUSES,
+  UNIT_STATUS,
+} from "@/lib/labels";
 import { formatDateTime, formatDay, formatMoney, todayIn } from "@/lib/utils";
 import type { Lease, UnitStatus } from "@/types/api";
 
@@ -42,7 +74,9 @@ export function LeaseDetail() {
   const lease = useLease(id);
   const action = useLeaseAction();
   const removeTerm = useRemoveRentTerm();
-  const [dialog, setDialog] = React.useState<"rent" | "end" | "cancel" | "activate" | null>(null);
+  const [dialog, setDialog] = React.useState<
+    "rent" | "end" | "cancel" | "activate" | null
+  >(null);
   const canManage = can("leases.manage");
   const tz = current.organization.timezone;
   const currency = current.organization.currency;
@@ -66,7 +100,9 @@ export function LeaseDetail() {
       { id: l.id, action: kind, body },
       {
         onSuccess: () => {
-          toast.success(kind === "activate" ? "Lease activated" : "Draft cancelled");
+          toast.success(
+            kind === "activate" ? "Lease activated" : "Draft cancelled",
+          );
           setDialog(null);
         },
         onError: (e) => {
@@ -78,25 +114,36 @@ export function LeaseDetail() {
 
   return (
     <>
-      <Link href="/dashboard/leases" className="mb-4 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
+      <Link
+        href="/dashboard/leases"
+        className="mb-4 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+      >
         <ArrowLeft className="size-4" /> Leases
       </Link>
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-semibold tracking-tight">{l.reference}</h1>
+            <h1 className="text-2xl font-semibold tracking-tight">
+              {l.reference}
+            </h1>
             <LeaseStatusBadge status={l.status} />
           </div>
           <p className="mt-1 text-sm text-muted-foreground">
             {can("tenants.view") ? (
-              <Link href={`/dashboard/tenants/${l.tenant}`} className="hover:underline">
+              <Link
+                href={`/dashboard/tenants/${l.tenant}`}
+                className="hover:underline"
+              >
                 {l.tenant_name}
               </Link>
             ) : (
               l.tenant_name
             )}{" "}
             ·{" "}
-            <Link href={`/dashboard/properties/${l.property_id}`} className="hover:underline">
+            <Link
+              href={`/dashboard/properties/${l.property_id}`}
+              className="hover:underline"
+            >
               {l.property_name}
             </Link>{" "}
             · Unit {l.unit_number}
@@ -130,18 +177,22 @@ export function LeaseDetail() {
 
       {l.status === "draft" && (
         <Alert className="mb-6" title="This lease is a draft">
-          The unit is not reserved until you activate it. Drafts can still be edited or cancelled.
+          The unit is not reserved until you activate it. Drafts can still be
+          edited or cancelled.
         </Alert>
       )}
 
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="space-y-6 lg:col-span-2">
+          {can("billing.view") &&
+            l.status !== "draft" &&
+            l.status !== "cancelled" && <LeaseAccountCard lease={l} />}
           <Card>
             <CardHeader>
               <CardTitle>Rent schedule</CardTitle>
               <CardDescription>
-                Each change applies from its date onward. Past periods keep the rent that was in
-                force at the time.
+                Each change applies from its date onward. Past periods keep the
+                rent that was in force at the time.
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -149,9 +200,13 @@ export function LeaseDetail() {
                 {l.rent_terms.map((term, i) => {
                   const isFuture = term.effective_from > today;
                   const next = l.rent_terms[i + 1];
-                  const inForce = !isFuture && (!next || next.effective_from > today);
+                  const inForce =
+                    !isFuture && (!next || next.effective_from > today);
                   const removable =
-                    canManage && i > 0 && (l.status === "draft" || isFuture) && l.status !== "ended";
+                    canManage &&
+                    i > 0 &&
+                    (l.status === "draft" || isFuture) &&
+                    l.status !== "ended";
                   return (
                     <li key={term.id} className="relative">
                       <span
@@ -162,7 +217,10 @@ export function LeaseDetail() {
                         <div>
                           <p className="font-medium">
                             {formatMoney(term.monthly_rent, currency)}
-                            <span className="font-normal text-muted-foreground"> / month</span>
+                            <span className="font-normal text-muted-foreground">
+                              {" "}
+                              / month
+                            </span>
                           </p>
                           <p className="text-sm text-muted-foreground">
                             From {formatDay(term.effective_from)}
@@ -171,7 +229,9 @@ export function LeaseDetail() {
                         </div>
                         <div className="flex items-center gap-2">
                           {inForce && <Badge variant="accent">Current</Badge>}
-                          {isFuture && <Badge variant="outline">Scheduled</Badge>}
+                          {isFuture && (
+                            <Badge variant="outline">Scheduled</Badge>
+                          )}
                           {removable && (
                             <Button
                               variant="ghost"
@@ -182,8 +242,10 @@ export function LeaseDetail() {
                                 removeTerm.mutate(
                                   { leaseId: l.id, termId: term.id },
                                   {
-                                    onSuccess: () => toast.success("Scheduled change removed"),
-                                    onError: (e) => toast.error(errorMessage(e)),
+                                    onSuccess: () =>
+                                      toast.success("Scheduled change removed"),
+                                    onError: (e) =>
+                                      toast.error(errorMessage(e)),
                                   },
                                 )
                               }
@@ -204,33 +266,81 @@ export function LeaseDetail() {
               <CardTitle>Documents</CardTitle>
             </CardHeader>
             <CardContent>
-              <DocumentsPanel target="lease" targetId={l.id} canManage={canManage} categories={["lease_agreement", "other"]} />
+              <DocumentsPanel
+                target="lease"
+                targetId={l.id}
+                canManage={canManage}
+                categories={["lease_agreement", "other"]}
+              />
             </CardContent>
           </Card>
         </div>
-        <Card className="h-fit">
-          <CardHeader>
-            <CardTitle>Summary</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <dl className="space-y-3 text-sm">
-              <Row label="Current rent" value={formatMoney(l.current_rent, currency)} />
-              <Row label="Deposit" value={Number(l.deposit_amount) ? formatMoney(l.deposit_amount, currency) : "No deposit"} />
-              <Row label="Billing" value={`${BILLING_FREQUENCY[l.billing_frequency]}, due on day ${l.rent_due_day}`} />
-              <Row label="Start" value={formatDay(l.start_date)} />
-              <Row label="Contract end" value={l.end_date ? formatDay(l.end_date) : "Periodic (no fixed end)"} />
-              {l.ended_on && <Row label="Ended on" value={formatDay(l.ended_on)} />}
-              {l.end_reason && <Row label="Reason" value={l.end_reason} />}
-              {l.activated_at && <Row label="Activated" value={formatDateTime(l.activated_at, tz)} />}
-              {l.notes && <Row label="Notes" value={l.notes} />}
-              <Row label="Tenant phone" value={l.tenant_phone} />
-            </dl>
-          </CardContent>
-        </Card>
+        <div className="space-y-6">
+          <Card className="h-fit">
+            <CardHeader>
+              <CardTitle>Summary</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <dl className="space-y-3 text-sm">
+                <Row
+                  label="Current rent"
+                  value={formatMoney(l.current_rent, currency)}
+                />
+                <Row
+                  label="Deposit"
+                  value={
+                    Number(l.deposit_amount)
+                      ? formatMoney(l.deposit_amount, currency)
+                      : "No deposit"
+                  }
+                />
+                <Row
+                  label="Billing"
+                  value={`${BILLING_FREQUENCY[l.billing_frequency]}, due on day ${l.rent_due_day}`}
+                />
+                <Row label="Start" value={formatDay(l.start_date)} />
+                <Row
+                  label="Contract end"
+                  value={
+                    l.end_date
+                      ? formatDay(l.end_date)
+                      : "Periodic (no fixed end)"
+                  }
+                />
+                {l.ended_on && (
+                  <Row label="Ended on" value={formatDay(l.ended_on)} />
+                )}
+                {l.end_reason && <Row label="Reason" value={l.end_reason} />}
+                {l.activated_at && (
+                  <Row
+                    label="Activated"
+                    value={formatDateTime(l.activated_at, tz)}
+                  />
+                )}
+                {l.notes && <Row label="Notes" value={l.notes} />}
+                <Row label="Tenant phone" value={l.tenant_phone} />
+              </dl>
+            </CardContent>
+          </Card>
+          {can("deposits.view") && l.status !== "cancelled" && (
+            <DepositCard lease={l} />
+          )}
+          {can("billing.view") && l.status === "active" && (
+            <UnitChargesCard lease={l} />
+          )}
+        </div>
       </div>
 
-      <RentChangeDialog lease={l} open={dialog === "rent"} onOpenChange={(o) => setDialog(o ? "rent" : null)} />
-      <EndLeaseDialog lease={l} open={dialog === "end"} onOpenChange={(o) => setDialog(o ? "end" : null)} />
+      <RentChangeDialog
+        lease={l}
+        open={dialog === "rent"}
+        onOpenChange={(o) => setDialog(o ? "rent" : null)}
+      />
+      <EndLeaseDialog
+        lease={l}
+        open={dialog === "end"}
+        onOpenChange={(o) => setDialog(o ? "end" : null)}
+      />
       <ConfirmDialog
         open={dialog === "activate"}
         onOpenChange={(o) => setDialog(o ? "activate" : null)}
@@ -269,17 +379,38 @@ const rentSchema = z.object({
   note: optionalText(255),
 });
 
-function RentChangeDialog({ lease, open, onOpenChange }: { lease: Lease; open: boolean; onOpenChange: (o: boolean) => void }) {
+function RentChangeDialog({
+  lease,
+  open,
+  onOpenChange,
+}: {
+  lease: Lease;
+  open: boolean;
+  onOpenChange: (o: boolean) => void;
+}) {
   const { current } = useOrganization();
   const add = useAddRentTerm();
   const [banner, setBanner] = React.useState<string | null>(null);
   const form = useForm<z.infer<typeof rentSchema>>({
     resolver: zodResolver(rentSchema),
-    defaultValues: { effective_from: "", monthly_rent: lease.current_rent ?? "", note: "" },
+    defaultValues: {
+      effective_from: "",
+      monthly_rent: lease.current_rent ?? "",
+      note: "",
+    },
   });
   const errors = form.formState.errors;
   return (
-    <Dialog open={open} onOpenChange={(o) => { if (!o) { form.reset(); setBanner(null); } onOpenChange(o); }}>
+    <Dialog
+      open={open}
+      onOpenChange={(o) => {
+        if (!o) {
+          form.reset();
+          setBanner(null);
+        }
+        onOpenChange(o);
+      }}
+    >
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Schedule a rent change</DialogTitle>
@@ -301,25 +432,49 @@ function RentChangeDialog({ lease, open, onOpenChange }: { lease: Lease; open: b
                   form.reset();
                   onOpenChange(false);
                 },
-                onError: (err) => setBanner(bannerError(err, applyServerErrors(err, form))),
+                onError: (err) =>
+                  setBanner(bannerError(err, applyServerErrors(err, form))),
               },
             ),
           )}
         >
           {banner && <Alert variant="error" title={banner} />}
           <div className="grid gap-4 sm:grid-cols-2">
-            <FormField id="r-date" label="Effective from" error={errors.effective_from?.message}>
-              <Input type="date" min={lease.start_date} {...form.register("effective_from")} />
+            <FormField
+              id="r-date"
+              label="Effective from"
+              error={errors.effective_from?.message}
+            >
+              <Input
+                type="date"
+                min={lease.start_date}
+                {...form.register("effective_from")}
+              />
             </FormField>
-            <FormField id="r-amount" label={`New monthly rent (${current.organization.currency})`} error={errors.monthly_rent?.message}>
+            <FormField
+              id="r-amount"
+              label={`New monthly rent (${current.organization.currency})`}
+              error={errors.monthly_rent?.message}
+            >
               <Input inputMode="decimal" {...form.register("monthly_rent")} />
             </FormField>
           </div>
-          <FormField id="r-note" label="Note (optional)" error={errors.note?.message}>
-            <Input placeholder="e.g. Annual 5% review" {...form.register("note")} />
+          <FormField
+            id="r-note"
+            label="Note (optional)"
+            error={errors.note?.message}
+          >
+            <Input
+              placeholder="e.g. Annual 5% review"
+              {...form.register("note")}
+            />
           </FormField>
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+            >
               Cancel
             </Button>
             <Button type="submit" loading={add.isPending}>
@@ -332,31 +487,66 @@ function RentChangeDialog({ lease, open, onOpenChange }: { lease: Lease; open: b
   );
 }
 
-function EndLeaseDialog({ lease, open, onOpenChange }: { lease: Lease; open: boolean; onOpenChange: (o: boolean) => void }) {
+function EndLeaseDialog({
+  lease,
+  open,
+  onOpenChange,
+}: {
+  lease: Lease;
+  open: boolean;
+  onOpenChange: (o: boolean) => void;
+}) {
   const { current } = useOrganization();
   const action = useLeaseAction();
   const today = todayIn(current.organization.timezone);
   const [endedOn, setEndedOn] = React.useState(today);
-  const [unitStatus, setUnitStatus] = React.useState<UnitStatus>("awaiting_inspection");
+  const [unitStatus, setUnitStatus] = React.useState<UnitStatus>(
+    "awaiting_inspection",
+  );
   const [reason, setReason] = React.useState("");
 
   return (
-    <Dialog open={open} onOpenChange={(o) => { if (!o) action.reset(); onOpenChange(o); }}>
+    <Dialog
+      open={open}
+      onOpenChange={(o) => {
+        if (!o) action.reset();
+        onOpenChange(o);
+      }}
+    >
       <DialogContent>
         <DialogHeader>
           <DialogTitle>End lease {lease.reference}</DialogTitle>
           <DialogDescription>
-            Close the tenancy once the tenant has left. The lease and its history stay on record.
-            Deposit settlement and move-out inspections are handled separately.
+            Close the tenancy once the tenant has left. The lease and its
+            history stay on record. Deposit settlement and move-out inspections
+            are handled separately.
           </DialogDescription>
         </DialogHeader>
-        {action.isError && <Alert variant="error" title={action.error.message} />}
+        {action.isError && (
+          <Alert variant="error" title={action.error.message} />
+        )}
         <div className="space-y-4">
-          <FormField id="e-date" label="Last day of tenancy" hint="Cannot be in the future.">
-            <Input type="date" min={lease.start_date} max={today} value={endedOn} onChange={(e) => setEndedOn(e.target.value)} />
+          <FormField
+            id="e-date"
+            label="Last day of tenancy"
+            hint="Cannot be in the future."
+          >
+            <Input
+              type="date"
+              min={lease.start_date}
+              max={today}
+              value={endedOn}
+              onChange={(e) => setEndedOn(e.target.value)}
+            />
           </FormField>
-          <FormField id="e-status" label={`Unit ${lease.unit_number} should become`}>
-            <NativeSelect value={unitStatus} onChange={(e) => setUnitStatus(e.target.value as UnitStatus)}>
+          <FormField
+            id="e-status"
+            label={`Unit ${lease.unit_number} should become`}
+          >
+            <NativeSelect
+              value={unitStatus}
+              onChange={(e) => setUnitStatus(e.target.value as UnitStatus)}
+            >
               {POST_LEASE_UNIT_STATUSES.map((s) => (
                 <option key={s} value={s}>
                   {UNIT_STATUS[s].label}
@@ -365,7 +555,11 @@ function EndLeaseDialog({ lease, open, onOpenChange }: { lease: Lease; open: boo
             </NativeSelect>
           </FormField>
           <FormField id="e-reason" label="Reason (optional)">
-            <Input maxLength={255} value={reason} onChange={(e) => setReason(e.target.value)} />
+            <Input
+              maxLength={255}
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+            />
           </FormField>
         </div>
         <DialogFooter>
@@ -378,7 +572,11 @@ function EndLeaseDialog({ lease, open, onOpenChange }: { lease: Lease; open: boo
             disabled={!endedOn}
             onClick={() =>
               action.mutate(
-                { id: lease.id, action: "end", body: { ended_on: endedOn, unit_status: unitStatus, reason } },
+                {
+                  id: lease.id,
+                  action: "end",
+                  body: { ended_on: endedOn, unit_status: unitStatus, reason },
+                },
                 {
                   onSuccess: () => {
                     toast.success("Lease ended");

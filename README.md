@@ -4,8 +4,9 @@ Nexora is a multi-tenant, all-in-one business management platform. Property mana
 first business module; the shared platform layer (accounts, organizations, roles, audit) is built
 so future modules such as POS, inventory and finance can plug into it.
 
-> **Status: Phases 1–2 are complete**: the platform foundation, plus properties, units, tenants,
-> leases and occupancy. Billing, payments, maintenance and reporting are **not built yet**. See
+> **Status: Phases 1–3 are complete**: the platform foundation; properties, units, tenants,
+> leases and occupancy; and billing (charges, invoices, meters, shared costs, tenant ledgers and
+> deposits). Payments, maintenance and reporting are **not built yet**. See
 > [docs/roadmap.md](docs/roadmap.md) for the phase checklist and known limitations.
 
 | Layer    | Stack                                                                          |
@@ -28,6 +29,9 @@ backend/                Django project (owns all business rules, auth and data a
   apps/properties/      Property, UnitType, Unit, PropertyAssignment (Nexora Property module)
   apps/tenants/         Tenant records (never hard-deleted)
   apps/leases/          Lease, effective-dated LeaseRentTerm, occupancy transitions
+  apps/billing/         charge types and rules, billing engine, invoices, ledger, shared costs
+  apps/utilities/       meters and readings
+  apps/deposits/        security deposit ledger (a liability, never income)
   tests/                API, permission and isolation tests
 frontend/               Next.js app; talks to Django only through lib/api/client.ts
   app/                  routes: (public) landing, (auth) pages, onboarding, dashboard
@@ -126,6 +130,23 @@ CI (`.github/workflows/ci.yml`) runs the same checks plus `manage.py check --dep
 6. Invite a caretaker. They see no properties until assigned under **Property → Staff access**
    (or Team → Edit access), and never see leases or rent.
 
+### Manual walkthrough of Phase 3
+
+1. **Charges → Add rule**: e.g. Security, *All properties*, fixed monthly 1,500. Add a second
+   rule for one unit with **Charge enabled** unticked: that unit opts out. Garbage with no rule
+   at all is never billed.
+2. **Billing → Generate invoices**, choose a month and **Preview**. Rent is prorated by day for
+   move-ins and rent changes. **Post invoices**. Run the same month again: "Nothing new to bill".
+3. Open an invoice: **Credit** part of it (a reason is required), or **Void** it if nothing has
+   been credited against it. Both appear in the tenant's statement and the audit log.
+4. **Utilities**: add a water meter to a unit, record a baseline reading, then a later one. With a
+   metered water rule (e.g. 150 per m³), the next billing run bills the usage exactly once.
+5. **Billing → Shared costs**: enter a property-wide bill. It's split to the cent between occupied
+   units whose rule for that charge uses the *shared* method.
+6. On a lease: **Account** shows the balance and running statement; **Deposit** records money
+   received, deductions and refunds separately from rent (held deposits are a liability).
+7. **Charges → Automatic billing** generates each month's invoices on a chosen day (Celery beat).
+
 ## Security model (summary)
 
 - Session cookies (HttpOnly, SameSite=Lax) plus CSRF tokens. The browser calls `/api/*` on the
@@ -141,6 +162,10 @@ CI (`.github/workflows/ci.yml`) runs the same checks plus `manage.py check --dep
   tenants, leases and documents on them.
 - Uploaded files are validated by content (PDF, DOCX, JPEG, PNG, WebP), stored under random
   names in private storage, and only served through a permission-checked download endpoint.
+- Posted invoices and ledger entries are immutable. Corrections are credits or voids with a
+  reason, an audit entry and a ledger movement. A unique database index on each line's dedupe
+  key makes double billing impossible even under concurrent or repeated runs.
+- Voids, credits, deposit deductions and refunds are owner-only by default (delegable per member).
 - Platform administrators get **no** implicit access to organization data.
 - Audit log entries are append-only (model, queryset and admin all refuse updates and deletes).
 - Login, registration, password reset and invitation endpoints are rate-limited and CSRF-protected,

@@ -4,6 +4,8 @@ import { Suspense } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { LeasesPage } from "@/features/leases/components/leases-page";
 
+// Rendered client-side after the session check; nothing to validate as an instant navigation.
+export const instant = false;
 export const metadata: Metadata = { title: "Leases" };
 
 export default function Page() {

@@ -38,6 +38,9 @@ INSTALLED_APPS = [
     "apps.properties",
     "apps.tenants",
     "apps.leases",
+    "apps.utilities",
+    "apps.billing",
+    "apps.deposits",
 ]
 
 MIDDLEWARE = [
@@ -163,6 +166,18 @@ SPECTACULAR_SETTINGS = {
     "ENUM_NAME_OVERRIDES": {
         "UnitTypeCategoryEnum": "apps.properties.models.UnitType.Category",
         "DocumentCategoryEnum": "apps.documents.models.Document.Category",
+        "ChargeRuleMethodEnum": "apps.billing.models.ChargeRule.Method",
+        "DepositMethodEnum": "apps.deposits.models.DepositTransaction.Method",
+        "InvoiceKindEnum": "apps.billing.models.Invoice.Kind",
+        "DepositKindEnum": "apps.deposits.models.DepositTransaction.Kind",
+        "InvoiceStatusEnum": "apps.billing.models.Invoice.Status",
+        "LeaseStatusEnum": "apps.leases.models.Lease.Status",
+        "TenantStatusEnum": "apps.tenants.models.Tenant.Status",
+        "UnitStatusEnum": "apps.properties.models.Unit.Status",
+        "MembershipStatusEnum": "apps.organizations.models.Membership.Status",
+        "InvitationStatusEnum": "apps.organizations.models.Invitation.Status",
+        "OrganizationStatusEnum": "apps.organizations.models.Organization.Status",
+        "MeterUtilityEnum": "apps.utilities.models.Meter.Utility",
     },
 }
 
@@ -182,6 +197,10 @@ CELERY_TASK_ALWAYS_EAGER = env.bool("CELERY_TASK_ALWAYS_EAGER", default=False)
 CELERY_TIMEZONE = TIME_ZONE
 CELERY_TASK_ACKS_LATE = True
 CELERY_BEAT_SCHEDULE = {
+    "scheduled-billing": {
+        "task": "apps.billing.tasks.run_scheduled_billing_for_all",
+        "schedule": 60 * 60 * 6,  # several times a day; each org bills at most once a month
+    },
     "sync-unit-occupancy": {
         "task": "apps.leases.tasks.sync_unit_occupancy",
         "schedule": 60 * 60,  # hourly; idempotent

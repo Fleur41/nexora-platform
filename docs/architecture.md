@@ -148,3 +148,66 @@ Decided now so every module follows it:
 `apps.audit.services.record_event(request, action, target=..., changes=...)` writes an immutable
 `AuditLog` row with actor, organization, IP (from `REMOTE_ADDR`; configure the proxy to set it),
 user agent and request id. Call it inside the same transaction as the change it records.
+
+## Billing (Phase 3)
+
+### Charges
+
+- `ChargeType` names a charge and its report category (`rental_income`, `utility_recovery`,
+  `service_charge`, `other_income`). Defaults are created per organization, but **nothing is
+  billed for a type until there is an enabled `ChargeRule` with a positive amount**.
+- `ChargeRule` scopes are organization, property, unit type or unit. The most specific rule in
+  force on a day wins, including a *disabled* rule, which is how one unit opts out of a
+  property-wide charge. Methods: `fixed_monthly`, `one_time`, `metered` (rate per unit of use)
+  and `shared` (amounts come from `SharedCost`). `included_in_rent` rules are shown, never billed.
+- Rules are effective-dated. A PostgreSQL exclusion constraint forbids overlapping rules for the
+  same charge type and scope (`scope_key`). Once a rule has been billed, only its note can change.
+  You end it and add a new rule, so past invoices keep their terms.
+- Rent never has rules. It comes from each lease's `LeaseRentTerm`s.
+
+### The billing engine (`billing/engine.py`)
+
+`draft_month(org, month)` computes, without writing anything:
+
+- **Recurring** (rent and fixed charges) for each lease whose billing period starts this month.
+  Periods are anchored on the lease's first month (quarterly from October = Oct–Dec, Jan–Mar…).
+  Amounts are prorated by day per calendar month: `rate × days / days_in_month`, with segments
+  split wherever a rent term or rule changes. Each line is rounded half-up to cents.
+- **One-time** charges, once per lease.
+- **Metered** usage from consecutive readings where the earlier reading is on/after the lease
+  start and the later one is unbilled; the billed line is recorded on the reading.
+- **Shared** costs for the month, split evenly to the cent (remainder cents to the first units)
+  among occupied units whose resolved rule uses the shared method.
+
+Every line carries a `dedupe_key` (e.g. `recurring:<lease>:<charge type>:<period start>`,
+`meter:<meter>:<reading>`, `shared:<cost>:<lease>`, `once:<lease>:<charge type>`). A partial
+unique index on `(organization, dedupe_key)` for non-void lines is the hard guarantee against
+double billing. The engine also drops already-billed keys, so re-running a month only posts what
+is new. That new material lands on a *supplementary* invoice if the regular one already exists.
+
+`services.run_billing` locks the organization's `BillingSettings` row (serialising runs), posts
+each invoice in its own savepoint, and records a `BillingRun` and an audit event. The preview
+endpoint returns the same drafts without saving. Billing runs need whole-organization access.
+
+### Ledger and corrections
+
+`LedgerEntry` is append-only per lease: `+` for invoices; `−` for credits, voids and (Phase 4)
+payments. Balances and statements are sums; an invoice's amount due is the sum of its entries.
+A void reverses the whole invoice and frees its dedupe keys and readings for rebilling. It's only
+allowed while nothing has been credited or paid against the invoice; otherwise you credit the
+balance. Credits get `CRN-` references.
+
+### Deposits
+
+`DepositTransaction` (received, deduction, refund, reversal) is a separate liability ledger:
+held = received − deducted − refunded. Deposits never appear on invoices or in rent balances.
+Deductions and refunds need a reason and can't exceed what's held, and a receipt can't be
+reversed while deductions/refunds made from it stand. Transactions are immutable; reversals undo
+them.
+
+### Scheduled billing
+
+`billing.tasks.run_scheduled_billing_for_all` runs several times a day via Celery beat. For each
+organization with `auto_generate` on, once the organization-local date reaches `generate_day`, it
+runs the current month at most once (`trigger=scheduled`). Thanks to dedupe keys, even a duplicate
+run cannot double-bill.

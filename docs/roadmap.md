@@ -53,10 +53,31 @@ prevented), #15 (scoped staff cannot exceed permissions or reach unassigned prop
 extended to every property-module record. A unit is never released automatically when a lease
 ends (#10, groundwork for move-out notices).
 
-## Phase 3 — Billing and accounting
-Charge types and effective-dated rules (organization/property/unit-type/unit scope), invoices and
-line items, idempotent period billing, utility meters and readings, deposits as liabilities,
-tenant ledger.
+## Phase 3 — Billing and accounting ✅ complete
+
+- [x] `apps/billing`: default charge types; scoped, effective-dated charge rules (fixed monthly,
+      one-time, metered, shared, included-in-rent, disabled overrides) with a DB no-overlap constraint
+- [x] Billing engine with daily proration, period anchoring for quarterly/semi-annual/annual
+      leases, mid-month rent/rule changes, final bills for ended leases
+- [x] Idempotent billing runs with preview, supplementary invoices for late items, and DB-enforced
+      dedupe keys; optional scheduled monthly billing (Celery beat, per-organization day)
+- [x] Immutable invoices and append-only tenant ledger; credits (`CRN-`) and voids with reasons and
+      audit; one-off invoices (occasional charges, opening balances); lease/tenant statements
+- [x] `apps/utilities`: meters, readings with monotonic validation, bulk walk-round entry, locked
+      once billed
+- [x] Shared costs split exactly to the cent between units set up to share them
+- [x] `apps/deposits`: received/deduction/refund/reversal ledger kept out of rent and income
+- [x] Capabilities: `billing.view/configure/generate/adjust`, `meters.view/record`,
+      `deposits.view/record/settle`; corrections and deposit settlement owner-only by default
+- [x] Frontend: Billing (invoices, runs, shared costs, generate-with-preview), invoice detail with
+      credit/void, Charges (rules, charge types, automatic billing), Utilities (meters, bulk
+      readings, history), lease Account/Deposit/Charges panels, tenant balance, overview finance stats
+- [x] Tests: 146 backend, 37 frontend unit, 4 Playwright (new: full billing flow)
+
+Covered requirement tests: #3 (disabled/zero charges create no debt), #12 (deposits excluded from
+rental income), #14 (no double counting: credits/voids net through one ledger), #17 (scheduled
+and repeated billing cannot duplicate), #18 (financial corrections create audit records), plus
+#1/#15 for all billing records.
 
 ## Phase 4 — Payments
 Per-organization payment configurations (with history), manual payments, allocations, receipts,
@@ -77,13 +98,16 @@ support access, security review, accessibility audit, deployment and backup runb
 
 ## Known limitations (current)
 
-- Billing, payments, deposits ledger, maintenance and reports are not built yet; the navigation
-  lists only built pages.
+- Payments, maintenance and reports are not built yet; the navigation lists only built pages.
+  Until Phase 4, balances only fall through credits and voids. Recording tenant payments
+  (M-Pesa, bank, cash) and allocating them to invoices comes next.
+- Invoices are not yet emailed/SMSed to tenants or downloadable as PDF (Phases 5–6).
+- Shared costs split evenly per occupied unit; weighting by unit size or meter is not supported yet.
+- Proration is by calendar day for all charges; there is no per-charge "no proration" option yet.
 - Ending a lease is the authorized closing step only. Move-out notices, inspections and deposit
   settlement arrive in Phase 5.
 - Property photos are private for now. Public listings (Phase 6) will add an explicit
   publish step for chosen photos.
-- Utility meter numbers are stored on units, but readings and consumption billing are Phase 3.
 - Lists used in pickers (properties, tenants in the lease form) load the first 50–100 records
   plus server-side search. Very large portfolios will want typeahead pickers.
 - No tenant portal, platform admin console or subscriptions yet (Phases 5–7).

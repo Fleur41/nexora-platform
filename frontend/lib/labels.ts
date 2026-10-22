@@ -1,5 +1,11 @@
 import type {
   BillingFrequency,
+  DepositKind,
+  InvoiceKind,
+  MeterUtility,
+  PaymentMethod,
+  RuleMethod,
+  RuleScope,
   DocumentCategory,
   LeaseStatus,
   PropertyType,
@@ -79,5 +85,46 @@ export const DOCUMENT_CATEGORY: Record<DocumentCategory, string> = {
   lease_agreement: "Lease agreement",
   identity: "Identity document",
   inspection: "Inspection report",
+  other: "Other",
+};
+
+export const RULE_SCOPE: Record<RuleScope, string> = {
+  organization: "All properties",
+  property: "One property",
+  unit_type: "A unit type",
+  unit: "One unit",
+};
+
+export const RULE_METHOD: Record<RuleMethod, string> = {
+  fixed_monthly: "Fixed monthly",
+  one_time: "One-time",
+  metered: "Metered (per unit used)",
+  shared: "Shared cost split",
+};
+
+export const INVOICE_KIND: Record<InvoiceKind, string> = {
+  regular: "Regular",
+  supplementary: "Supplementary",
+  one_off: "One-off",
+};
+
+export const METER_UTILITY: Record<MeterUtility, string> = {
+  water: "Water",
+  electricity: "Electricity",
+  gas: "Gas",
+};
+
+export const DEPOSIT_KIND: Record<DepositKind, string> = {
+  received: "Received",
+  deduction: "Deduction",
+  refund: "Refund",
+  reversal: "Reversal",
+};
+
+export const PAYMENT_METHOD: Record<Exclude<PaymentMethod, "">, string> = {
+  mpesa: "M-Pesa",
+  bank: "Bank transfer",
+  cash: "Cash",
+  cheque: "Cheque",
   other: "Other",
 };

@@ -14,6 +14,7 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ErrorState } from "@/components/ui/states";
 import { LeaseStatusBadge } from "@/components/ui/status";
+import { useTenantAccount } from "@/features/billing/api";
 import { DocumentsPanel } from "@/features/documents/components/documents-panel";
 import { useLeases } from "@/features/leases/api";
 import { useTenant, useTenantStatus } from "@/features/tenants/api";
@@ -29,6 +30,7 @@ export function TenantDetail() {
   const tenant = useTenant(id);
   const leases = useLeases({ tenant: id, page_size: 100 }, can("leases.view"));
   const status = useTenantStatus();
+  const account = useTenantAccount(id, can("billing.view"));
   const [editing, setEditing] = React.useState(false);
   const [archiving, setArchiving] = React.useState(false);
   const canManage = can("tenants.manage");
@@ -157,6 +159,14 @@ export function TenantDetail() {
           </CardHeader>
           <CardContent>
             <dl className="space-y-3 text-sm">
+              {account.data && (
+                <div>
+                  <dt className="text-muted-foreground">Balance owed</dt>
+                  <dd className={`text-lg font-semibold ${Number(account.data.balance) > 0 ? "text-destructive" : ""}`}>
+                    {formatMoney(account.data.balance, account.data.currency)}
+                  </dd>
+                </div>
+              )}
               <Detail label="Alternate phone" value={t.alternate_phone} />
               {canManage && (
                 <>

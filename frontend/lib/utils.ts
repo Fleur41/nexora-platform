@@ -61,3 +61,16 @@ export function formatDay(value: string | null | undefined): string {
     new Date(Date.UTC(y!, m! - 1, d!)),
   );
 }
+
+/** "2026-08-01" or "2026-08" -> "Aug 2026". */
+export function formatMonth(value: string | null | undefined): string {
+  if (!value) return "—";
+  const [y, m] = value.split("-").map(Number);
+  return new Intl.DateTimeFormat("en-KE", { month: "short", year: "numeric", timeZone: "UTC" }).format(
+    new Date(Date.UTC(y!, m! - 1, 1)),
+  );
+}
+
+export function plural(count: number, singular: string, pluralForm = `${singular}s`): string {
+  return `${count} ${count === 1 ? singular : pluralForm}`;
+}
