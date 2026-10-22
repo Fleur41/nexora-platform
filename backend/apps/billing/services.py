@@ -157,14 +157,23 @@ def preview_billing(*, organization, month: date) -> MonthDraft:
 
 @transaction.atomic
 def run_billing(
-    *, request, organization, month: date, trigger=BillingRun.Trigger.MANUAL
+    *,
+    request,
+    organization,
+    month: date,
+    trigger=BillingRun.Trigger.MANUAL,
+    issue_date: date | None = None,
 ) -> RunResult:
-    """Bill a month. Safe to repeat: only lines not already billed are posted."""
+    """Bill a month. Safe to repeat: only lines not already billed are posted.
+
+    `issue_date` defaults to today; backfills (e.g. sample data) may date invoices earlier.
+    """
     month = month.replace(day=1)
     _lock_organization_billing(organization)
     actor = request.user if request is not None else None
     draft = draft_month(organization, month)
-    issue_date = organization_today(organization)
+    today = organization_today(organization)
+    issue_date = min(issue_date or today, today)
 
     run = BillingRun.objects.create(
         organization=organization, period=month, trigger=trigger, created_by=actor

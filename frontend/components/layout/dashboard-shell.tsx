@@ -42,9 +42,6 @@ function OrganizationGate({ user, children }: { user: User; children: React.Reac
     if (orgs.data?.length === 0) router.replace("/onboarding");
   }, [orgs.data, router]);
 
-  React.useEffect(() => {
-    if (activeId) setActiveOrganizationId(activeId);
-  }, [activeId]);
 
   const handleSwitch = React.useCallback(
     (id: string) => {
@@ -62,6 +59,11 @@ function OrganizationGate({ user, children }: { user: User; children: React.Reac
     );
   }
   if (!orgs.data || orgs.data.length === 0 || !activeId) return <FullPageSkeleton />;
+
+  // The API client reads the active organization when a request is made. It must be set
+  // before any page below renders and fires queries; an effect would run too late (after
+  // children mount), sending the first requests without X-Organization-ID. Idempotent.
+  if (getActiveOrganizationId() !== activeId) setActiveOrganizationId(activeId);
 
   return (
     <OrganizationProvider organizations={orgs.data} activeId={activeId} onSwitch={handleSwitch}>

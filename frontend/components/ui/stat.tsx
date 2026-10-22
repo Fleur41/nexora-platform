@@ -2,6 +2,8 @@ import type { LucideIcon } from "lucide-react";
 import Link from "next/link";
 import * as React from "react";
 
+import { cn } from "@/lib/utils";
+
 import { Card, CardDescription, CardHeader } from "./card";
 import { Skeleton } from "./skeleton";
 
@@ -30,7 +32,15 @@ export function Stat({
         {loading ? (
           <Skeleton className="h-8 w-20" />
         ) : (
-          <p className="text-3xl font-semibold tracking-tight">{value}</p>
+          <p
+            className={cn(
+              "font-semibold tracking-tight tabular-nums",
+              // Long money values (e.g. "Ksh 349,857.68") step down so they never overflow.
+              typeof value === "string" && value.length > 11 ? "text-2xl" : "text-3xl",
+            )}
+          >
+            {value}
+          </p>
         )}
         {hint && !loading && <p className="text-xs text-muted-foreground">{hint}</p>}
       </CardHeader>

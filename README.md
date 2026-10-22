@@ -85,6 +85,34 @@ to `false` and run `.venv/bin/celery -A config worker -l info`.
 Create a Django admin superuser with `.venv/bin/python manage.py createsuperuser`
 (admin at http://localhost:8000/django-admin/).
 
+## Sample data
+
+```bash
+cd backend
+.venv/bin/python manage.py seed_demo                          # once; DEBUG must be on
+.venv/bin/python manage.py seed_demo --owner-email you@x.com  # also make your account an owner
+```
+
+Creates **Nexora Demo Homes (sample data)**:
+- **Properties and units:** 3 properties in Nairobi, Kiambu and Mombasa with 26 units.
+- **Tenants and leases:** 22 tenants (all invented) on active, ended, draft and future-start leases.
+- **Charges:** security, garbage, metered water, included-in-rent water, a shared electricity bill, a parking charge, and one unit opted out of security.
+- **Billing history:** invoices since the earliest lease start, with tenants who pay on time, pay late, pay partially, overpay, or are in arrears.
+- **Payments:** M-Pesa, bank and cash payments, plus two unmatched M-Pesa payments waiting to be reconciled.
+- **Deposits:** received deposits, and one move-out with a deposit deduction and refund.
+
+It all goes through the normal services, so ledgers and audit logs are consistent. Sign in as any role, password `Admin@123` (local testing only; change it with `--password`):
+
+| Role | Email | Sees |
+| ---- | ----- | ---- |
+| Owner | demo-owner@nexora.test | everything |
+| Property manager | demo-manager@nexora.test | Kilimani Heights only (assigned) |
+| Accountant | demo-accountant@nexora.test | all properties; billing and payments, no corrections |
+| Caretaker | demo-caretaker@nexora.test | Ruaka Gardens only; units, tenants' contacts, meters |
+
+Posted financial records can't be deleted (by design), so to start over, recreate the local
+database: `docker compose down -v && docker compose up -d db`, then migrate and seed again.
+
 ## Verifying
 
 ```bash

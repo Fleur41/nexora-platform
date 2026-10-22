@@ -59,6 +59,7 @@ const LABELS: Record<string, string> = {
   "deposit.deduction": "Deposit deduction",
   "deposit.refund": "Deposit refunded",
   "deposit.reversal": "Deposit transaction reversed",
+  "demo.seeded": "Sample data created",
   "payment.recorded": "Payment recorded",
   "payment.matched": "Payment matched to a lease",
   "payment.credit_applied": "Credit applied to invoices",
