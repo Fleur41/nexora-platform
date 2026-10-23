@@ -42,6 +42,10 @@ INSTALLED_APPS = [
     "apps.billing",
     "apps.deposits",
     "apps.payments",
+    "apps.notifications",
+    "apps.maintenance",
+    "apps.inspections",
+    "apps.portal",
 ]
 
 MIDDLEWARE = [
@@ -183,6 +187,17 @@ SPECTACULAR_SETTINGS = {
         "PaymentStatusEnum": "apps.payments.models.Payment.Status",
         "PaymentRequestStatusEnum": "apps.payments.models.PaymentRequest.Status",
         "ProviderEventStatusEnum": "apps.payments.models.ProviderEvent.Status",
+        "PaymentSourceEnum": "apps.payments.models.Payment.Source",
+        "MaintenanceStatusEnum": "apps.maintenance.models.MaintenanceRequest.Status",
+        "MaintenanceCategoryEnum": "apps.maintenance.models.MaintenanceRequest.Category",
+        "MaintenanceSourceEnum": "apps.maintenance.models.MaintenanceRequest.Source",
+        "MaintenanceCostKindEnum": "apps.maintenance.models.MaintenanceCost.Kind",
+        "MaintenanceCostStatusEnum": "apps.maintenance.models.MaintenanceCost.Status",
+        "InspectionKindEnum": "apps.inspections.models.Inspection.Kind",
+        "InspectionStatusEnum": "apps.inspections.models.Inspection.Status",
+        "MoveOutStatusEnum": "apps.leases.models.MoveOutNotice.Status",
+        "NotificationKindEnum": "apps.notifications.models.Notification.Kind",
+        "NotificationStatusEnum": "apps.notifications.models.Notification.Status",
     },
 }
 
@@ -205,6 +220,14 @@ CELERY_BEAT_SCHEDULE = {
     "scheduled-billing": {
         "task": "apps.billing.tasks.run_scheduled_billing_for_all",
         "schedule": 60 * 60 * 6,  # several times a day; each org bills at most once a month
+    },
+    "daily-reminders": {
+        "task": "apps.notifications.tasks.send_scheduled_reminders",
+        "schedule": 60 * 60 * 6,  # dedupe keys make repeated runs harmless
+    },
+    "retry-stuck-notifications": {
+        "task": "apps.notifications.tasks.retry_stuck_notifications",
+        "schedule": 60 * 15,
     },
     "expire-stale-mpesa-requests": {
         "task": "apps.payments.tasks.expire_stale_payment_requests",
@@ -236,6 +259,13 @@ NEXORA_PUBLIC_API_URL = env("NEXORA_PUBLIC_API_URL", default="").rstrip("/")
 MPESA_CALLBACK_ALLOWED_IPS = env.list("MPESA_CALLBACK_ALLOWED_IPS", default=[])
 MPESA_TIMEOUT_SECONDS = env.int("MPESA_TIMEOUT_SECONDS", default=20)
 STATEMENT_IMPORT_MAX_ROWS = env.int("STATEMENT_IMPORT_MAX_ROWS", default=5000)
+
+# --- Notifications ------------------------------------------------------------
+# "console" logs SMS (development); "africastalking" sends via Africa's Talking.
+NOTIFICATION_SMS_BACKEND = env("NOTIFICATION_SMS_BACKEND", default="console")
+AFRICASTALKING_USERNAME = env("AFRICASTALKING_USERNAME", default="")
+AFRICASTALKING_API_KEY = env("AFRICASTALKING_API_KEY", default="")
+AFRICASTALKING_SENDER_ID = env("AFRICASTALKING_SENDER_ID", default="")
 
 # --- Invitations -----------------------------------------------------------
 INVITATION_TTL_DAYS = env.int("INVITATION_TTL_DAYS", default=7)

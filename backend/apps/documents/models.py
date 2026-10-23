@@ -18,6 +18,15 @@ def document_path(instance, filename: str) -> str:
     return f"org/{instance.organization_id}/{uuid.uuid4().hex}{instance.extension}"
 
 
+def _exactly_one_target() -> Q:
+    fields = ("property", "unit", "tenant", "lease", "maintenance_request", "inspection")
+    options = [Q(**{f"{f}__isnull": f != chosen for f in fields}) for chosen in fields]
+    condition = options[0]
+    for option in options[1:]:
+        condition |= option
+    return condition
+
+
 class Document(OrganizationScopedModel):
     """A private file attached to exactly one record (property, unit, tenant or lease)."""
 
@@ -52,6 +61,20 @@ class Document(OrganizationScopedModel):
     lease = models.ForeignKey(
         "leases.Lease", null=True, blank=True, on_delete=models.PROTECT, related_name="documents"
     )
+    maintenance_request = models.ForeignKey(
+        "maintenance.MaintenanceRequest",
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="documents",
+    )
+    inspection = models.ForeignKey(
+        "inspections.Inspection",
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="documents",
+    )
     uploaded_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, null=True, on_delete=models.SET_NULL, related_name="+"
     )
@@ -61,39 +84,13 @@ class Document(OrganizationScopedModel):
         settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="+"
     )
 
-    TARGET_FIELDS = ("property", "unit", "tenant", "lease")
+    TARGET_FIELDS = ("property", "unit", "tenant", "lease", "maintenance_request", "inspection")
 
     class Meta:
         ordering = ["-created_at"]
         constraints = [
             models.CheckConstraint(
-                name="documents_exactly_one_target",
-                condition=(
-                    Q(
-                        property__isnull=False,
-                        unit__isnull=True,
-                        tenant__isnull=True,
-                        lease__isnull=True,
-                    )
-                    | Q(
-                        property__isnull=True,
-                        unit__isnull=False,
-                        tenant__isnull=True,
-                        lease__isnull=True,
-                    )
-                    | Q(
-                        property__isnull=True,
-                        unit__isnull=True,
-                        tenant__isnull=False,
-                        lease__isnull=True,
-                    )
-                    | Q(
-                        property__isnull=True,
-                        unit__isnull=True,
-                        tenant__isnull=True,
-                        lease__isnull=False,
-                    )
-                ),
+                name="documents_exactly_one_target", condition=_exactly_one_target()
             )
         ]
 

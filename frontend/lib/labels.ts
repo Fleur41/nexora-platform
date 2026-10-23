@@ -1,5 +1,11 @@
 import type {
   BillingFrequency,
+  InspectionKind,
+  ItemCondition,
+  MaintenanceCategory,
+  MaintenanceStatus,
+  MoveOutStatus,
+  Urgency,
   IntegrationStatus,
   PaymentProvider,
   PaymentSource,
@@ -155,4 +161,66 @@ export const INTEGRATION_STATUS: Record<
   credentials_saved: { label: "Not verified", variant: "warning" },
   verified: { label: "Connected", variant: "accent" },
   failed: { label: "Connection failed", variant: "destructive" },
+};
+
+export const MAINTENANCE_STATUS: Record<MaintenanceStatus, { label: string; variant: "warning" | "default" | "accent" | "muted" | "destructive" }> = {
+  submitted: { label: "New", variant: "warning" },
+  acknowledged: { label: "Acknowledged", variant: "default" },
+  in_progress: { label: "In progress", variant: "default" },
+  on_hold: { label: "On hold", variant: "muted" },
+  resolved: { label: "Resolved", variant: "accent" },
+  closed: { label: "Closed", variant: "muted" },
+  cancelled: { label: "Cancelled", variant: "muted" },
+};
+
+/** Allowed next statuses (mirrors MaintenanceRequest.TRANSITIONS). */
+export const MAINTENANCE_NEXT: Record<MaintenanceStatus, MaintenanceStatus[]> = {
+  submitted: ["acknowledged", "in_progress", "cancelled"],
+  acknowledged: ["in_progress", "on_hold", "resolved", "cancelled"],
+  in_progress: ["on_hold", "resolved"],
+  on_hold: ["in_progress", "resolved", "cancelled"],
+  resolved: ["closed", "in_progress"],
+  closed: [],
+  cancelled: [],
+};
+
+export const MAINTENANCE_CATEGORY: Record<MaintenanceCategory, string> = {
+  plumbing: "Plumbing",
+  electrical: "Electrical",
+  structural: "Structural",
+  security: "Security / locks",
+  appliance: "Appliance",
+  pest: "Pest control",
+  cleaning: "Cleaning",
+  other: "Other",
+};
+
+export const URGENCY: Record<Urgency, { label: string; variant: "muted" | "default" | "warning" | "destructive" }> = {
+  low: { label: "Low", variant: "muted" },
+  normal: { label: "Normal", variant: "default" },
+  high: { label: "High", variant: "warning" },
+  emergency: { label: "Emergency", variant: "destructive" },
+};
+
+export const INSPECTION_KIND: Record<InspectionKind, string> = {
+  move_in: "Move-in",
+  move_out: "Move-out",
+  routine: "Routine",
+};
+
+export const ITEM_CONDITION: Record<ItemCondition, string> = {
+  not_checked: "Not checked",
+  good: "Good",
+  fair: "Fair",
+  poor: "Poor",
+  damaged: "Damaged",
+  missing: "Missing",
+};
+
+export const MOVE_OUT_STATUS: Record<MoveOutStatus, { label: string; variant: "warning" | "default" | "accent" | "muted" }> = {
+  submitted: { label: "New notice", variant: "warning" },
+  acknowledged: { label: "Acknowledged", variant: "default" },
+  inspection_scheduled: { label: "Inspection scheduled", variant: "default" },
+  completed: { label: "Moved out", variant: "accent" },
+  withdrawn: { label: "Withdrawn", variant: "muted" },
 };

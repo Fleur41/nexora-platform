@@ -17,6 +17,10 @@ api_v1 = [
     path("", include("apps.billing.urls")),
     path("", include("apps.deposits.urls")),
     path("", include("apps.payments.urls")),
+    path("", include("apps.notifications.urls")),
+    path("", include("apps.maintenance.urls")),
+    path("", include("apps.inspections.urls")),
+    path("", include("apps.portal.urls")),
     path("schema/", SpectacularAPIView.as_view(), name="schema"),
     path("docs/", SpectacularSwaggerView.as_view(url_name="schema"), name="api-docs"),
 ]

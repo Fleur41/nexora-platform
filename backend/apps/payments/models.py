@@ -185,6 +185,7 @@ class Payment(OrganizationScopedModel):
         MPESA_C2B = "mpesa_c2b", "M-Pesa (paybill/till)"
         MPESA_STK = "mpesa_stk", "M-Pesa (payment request)"
         BANK_IMPORT = "bank_import", "Bank statement import"
+        DEPOSIT = "deposit", "Deposit applied at move-out"
 
     receipt_number = models.CharField(max_length=32, editable=False)
     lease = models.ForeignKey(

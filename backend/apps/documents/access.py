@@ -14,6 +14,8 @@ RULES = {
     "unit": ("properties.view", "properties.manage"),
     "tenant": ("tenants.manage", "tenants.manage"),
     "lease": ("leases.view", "leases.manage"),
+    "maintenance_request": ("maintenance.view", "maintenance.manage"),
+    "inspection": ("inspections.view", "inspections.manage"),
 }
 
 
@@ -32,6 +34,14 @@ def target_queryset(field: str, membership: Membership):
         return accessible_tenants(membership)
     if field == "lease":
         return Lease.objects.filter(unit__property__in=properties.values("pk"))
+    if field == "maintenance_request":
+        from apps.maintenance.models import MaintenanceRequest
+
+        return MaintenanceRequest.objects.filter(unit__property__in=properties.values("pk"))
+    if field == "inspection":
+        from apps.inspections.models import Inspection
+
+        return Inspection.objects.filter(unit__property__in=properties.values("pk"))
     raise ValueError(field)
 
 

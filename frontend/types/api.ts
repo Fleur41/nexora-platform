@@ -242,6 +242,7 @@ export interface Tenant {
   emergency_contact_phone: string;
   status: "active" | "archived";
   active_lease_count: number;
+  portal_status: "none" | "invited" | "active";
   created_at: string;
   updated_at: string;
 }
@@ -285,7 +286,7 @@ export interface Lease {
 }
 
 export type DocumentCategory = "photo" | "lease_agreement" | "identity" | "inspection" | "other";
-export type DocumentTarget = "property" | "unit" | "tenant" | "lease";
+export type DocumentTarget = "property" | "unit" | "tenant" | "lease" | "maintenance_request" | "inspection";
 
 export interface NexoraDocument {
   id: UUID;
@@ -299,6 +300,8 @@ export interface NexoraDocument {
   unit: UUID | null;
   tenant: UUID | null;
   lease: UUID | null;
+  maintenance_request: UUID | null;
+  inspection: UUID | null;
   uploaded_by_name: string;
   created_at: string;
 }
@@ -723,4 +726,300 @@ export interface PaymentInstructions {
     instructions: string;
     supports_payment_request: boolean;
   }[];
+}
+
+// --- Operations -----------------------------------------------------------------
+
+export type MaintenanceStatus = "submitted" | "acknowledged" | "in_progress" | "on_hold" | "resolved" | "closed" | "cancelled";
+export type MaintenanceCategory = "plumbing" | "electrical" | "structural" | "security" | "appliance" | "pest" | "cleaning" | "other";
+export type Urgency = "low" | "normal" | "high" | "emergency";
+
+export interface MaintenanceRequest {
+  id: UUID;
+  reference: string;
+  unit: UUID;
+  unit_number: string;
+  property_id: UUID;
+  property_name: string;
+  tenant: UUID | null;
+  tenant_name: string | null;
+  source: "tenant" | "staff" | "inspection";
+  category: MaintenanceCategory;
+  title: string;
+  description: string;
+  urgency: Urgency;
+  status: MaintenanceStatus;
+  assigned_to: UUID | null;
+  assigned_to_name: string | null;
+  scheduled_for: string | null;
+  resolved_at: string | null;
+  closed_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface MaintenanceUpdate {
+  id: UUID;
+  author_name: string;
+  from_tenant: boolean;
+  body: string;
+  is_internal: boolean;
+  status_from: string;
+  status_to: string;
+  created_at: string;
+}
+
+export interface MaintenanceCost {
+  id: UUID;
+  kind: "quotation" | "expense";
+  supplier_name: string;
+  description: string;
+  amount: Money;
+  status: "pending" | "approved" | "rejected" | "recorded";
+  incurred_on: string | null;
+  created_at: string;
+}
+
+export interface MaintenanceDetail extends MaintenanceRequest {
+  updates: MaintenanceUpdate[];
+  costs: MaintenanceCost[] | null;
+}
+
+export type InspectionKind = "move_in" | "move_out" | "routine";
+export type ItemCondition = "not_checked" | "good" | "fair" | "poor" | "damaged" | "missing";
+
+export interface Inspection {
+  id: UUID;
+  reference: string;
+  unit: UUID;
+  unit_number: string;
+  property_name: string;
+  lease: UUID | null;
+  lease_reference: string | null;
+  tenant_name: string | null;
+  kind: InspectionKind;
+  status: "scheduled" | "completed" | "cancelled";
+  scheduled_for: string;
+  inspector: UUID | null;
+  inspector_name: string | null;
+  summary: string;
+  keys_returned: number | null;
+  tenant_present: boolean;
+  tenant_signature_name: string;
+  inspector_signature_name: string;
+  completed_at: string | null;
+  damages_total: Money;
+  created_at: string;
+}
+
+export interface InspectionItem {
+  id: UUID;
+  area: string;
+  name: string;
+  condition: ItemCondition;
+  notes: string;
+  charge_amount: Money;
+  position: number;
+}
+
+export interface InspectionDetail extends Inspection {
+  items: InspectionItem[];
+}
+
+export type MoveOutStatus = "submitted" | "acknowledged" | "inspection_scheduled" | "completed" | "withdrawn";
+
+export interface MoveOutNotice {
+  id: UUID;
+  lease: UUID;
+  lease_reference: string;
+  tenant: UUID;
+  tenant_name: string;
+  unit_number: string;
+  property_name: string;
+  intended_date: string;
+  message: string;
+  from_tenant: boolean;
+  status: MoveOutStatus;
+  staff_notes: string;
+  inspection: UUID | null;
+  inspection_reference: string | null;
+  inspection_status: string | null;
+  settlement: Record<string, string | boolean | string[]>;
+  acknowledged_at: string | null;
+  completed_at: string | null;
+  created_at: string;
+}
+
+export interface SettlementPreview {
+  deposit_held: Money;
+  damages_found: Money;
+  damages_deducted: Money;
+  balance_before: Money;
+  applied_to_balance: Money;
+  refund: Money;
+  balance_after: Money;
+  move_out_month_billed: boolean;
+  notes: string[];
+}
+
+export interface InboxNotification {
+  id: UUID;
+  kind: string;
+  title: string;
+  body: string;
+  link: string;
+  organization: UUID | null;
+  organization_name: string | null;
+  read_at: string | null;
+  created_at: string;
+}
+
+export interface NotificationSettings {
+  email_enabled: boolean;
+  sms_enabled: boolean;
+  invoice_notifications: boolean;
+  receipt_notifications: boolean;
+  rent_due_reminder_days: number;
+  arrears_reminders: boolean;
+  lease_expiry_days: number;
+}
+
+export interface Announcement {
+  id: UUID;
+  title: string;
+  body: string;
+  property: UUID | null;
+  property_name: string | null;
+  send_email: boolean;
+  send_sms: boolean;
+  recipients: number;
+  sent_by_name: string;
+  created_at: string;
+}
+
+export interface DeliveryLogEntry {
+  id: UUID;
+  kind: string;
+  channel: "email" | "sms";
+  title: string;
+  to_address: string;
+  tenant_name: string | null;
+  user_name: string | null;
+  status: "pending" | "sent" | "failed" | "skipped";
+  error: string;
+  attempts: number;
+  sent_at: string | null;
+  created_at: string;
+}
+
+// --- Tenant portal --------------------------------------------------------------------
+
+export interface PortalTenancy {
+  tenant: UUID;
+  full_name: string;
+  organization: { id: UUID; name: string; currency: string; timezone: string; phone: string; email: string };
+}
+
+export interface PortalInvoice {
+  id: UUID;
+  number: string;
+  kind: string;
+  status: "issued" | "void";
+  period_start: string | null;
+  period_end: string | null;
+  issue_date: string;
+  due_date: string;
+  currency: string;
+  total: Money;
+  amount_due: Money;
+  unit_number: string;
+  property_name: string;
+  lines?: { description: string; amount: Money }[];
+}
+
+export interface PortalPayment {
+  id: UUID;
+  receipt_number: string;
+  amount: Money;
+  received_on: string;
+  method: string;
+  reference: string;
+  status: "completed" | "reversed";
+  invoices: { number: string; amount: Money }[];
+}
+
+export interface PortalMethod {
+  provider: PaymentProvider;
+  display_name: string;
+  shortcode: string;
+  account_number_to_use: string;
+  bank_name: string;
+  bank_branch: string;
+  account_name: string;
+  account_number: string;
+  reference_to_use: string;
+  instructions: string;
+  supports_payment_request: boolean;
+}
+
+export interface PortalLease {
+  id: UUID;
+  reference: string;
+  status: LeaseStatus;
+  property_name: string;
+  unit_number: string;
+  start_date: string;
+  end_date: string | null;
+  ended_on: string | null;
+  monthly_rent: Money | null;
+  rent_due_day: number;
+  balance: Money;
+  credit: Money;
+  deposit_held: Money;
+  payment_methods: PortalMethod[];
+}
+
+export interface PortalSummary {
+  tenant: UUID;
+  full_name: string;
+  currency: string;
+  balance: Money;
+  overdue: Money;
+  next_due: PortalInvoice | null;
+  open_invoices: PortalInvoice[];
+  recent_payments: PortalPayment[];
+  leases: PortalLease[];
+  open_maintenance: number;
+}
+
+export interface PortalMaintenance {
+  id: UUID;
+  reference: string;
+  unit_number: string;
+  property_name: string;
+  category: MaintenanceCategory;
+  title: string;
+  description: string;
+  urgency: Urgency;
+  status: MaintenanceStatus;
+  is_assigned: boolean;
+  scheduled_for: string | null;
+  resolved_at: string | null;
+  created_at: string;
+  updated_at: string;
+  updates?: { id: UUID; author_name: string; from_tenant: boolean; body: string; status_to: string; created_at: string }[];
+  photos?: { id: UUID; title: string }[];
+}
+
+export interface PortalMoveOut {
+  id: UUID;
+  lease: UUID;
+  lease_reference: string;
+  intended_date: string;
+  message: string;
+  status: MoveOutStatus;
+  inspection_date: string | null;
+  created_at: string;
+  acknowledged_at: string | null;
+  completed_at: string | null;
 }

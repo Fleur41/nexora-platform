@@ -8,6 +8,7 @@ SENSITIVE_FIELDS = ("id_type", "id_number", "kra_pin", "notes", "employer", "occ
 
 class TenantSerializer(serializers.ModelSerializer):
     active_lease_count = serializers.IntegerField(read_only=True)
+    portal_status = serializers.SerializerMethodField()
 
     class Meta:
         model = Tenant
@@ -27,10 +28,17 @@ class TenantSerializer(serializers.ModelSerializer):
             "notes",
             "status",
             "active_lease_count",
+            "portal_status",
             "created_at",
             "updated_at",
         ]
         read_only_fields = ["id", "status", "created_at", "updated_at"]
+
+    def get_portal_status(self, tenant) -> str:
+        if tenant.user_id:
+            return "active"
+        pending = tenant.portal_invitations.filter(status="pending").exists()
+        return "invited" if pending else "none"
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
@@ -88,3 +96,7 @@ def _normalize_phone(value: str, required: bool = False) -> str:
     if not raw.startswith("+") or not 8 <= len(raw) <= 16:
         raise serializers.ValidationError("Enter a valid phone number, e.g. 0712 345 678.")
     return raw
+
+
+class PortalInviteSerializer(serializers.Serializer):
+    email = serializers.EmailField()

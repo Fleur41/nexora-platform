@@ -188,6 +188,26 @@ def _post_new_payment(payment: Payment, actor, requested=None) -> None:
         )
 
 
+def _notify_receipt(payment: Payment) -> None:
+    from apps.notifications.services import notify, settings_for
+
+    if not settings_for(payment.organization).receipt_notifications:
+        return
+    currency = payment.organization.currency
+    notify(
+        organization=payment.organization,
+        kind="receipt",
+        tenants=[payment.tenant],
+        sms=True,
+        title=f"Payment received: {currency} {payment.amount:,.2f}",
+        body=f"Thank you {payment.tenant.full_name.split()[0]}. "
+        f"We received {currency} {payment.amount:,.2f} "
+        f"on {payment.received_on:%d %b %Y}. Receipt {payment.receipt_number}.",
+        tenant_link=f"/portal/payments/{payment.pk}",
+        dedupe_key=f"receipt:{payment.pk}",
+    )
+
+
 # --- Recording ----------------------------------------------------------------------------
 
 
@@ -264,6 +284,8 @@ def record_payment(
 
     if lease is not None:
         _post_new_payment(payment, actor, allocations)
+        if source != Payment.Source.DEPOSIT:
+            _notify_receipt(payment)
     record_event(
         request,
         "payment.recorded",
@@ -298,6 +320,7 @@ def match_payment(*, request, payment: Payment, lease: Lease) -> Payment:
     payment.matched_at, payment.matched_by = timezone.now(), request.user
     payment.save(update_fields=["lease", "tenant", "matched_at", "matched_by", "updated_at"])
     _post_new_payment(payment, request.user)
+    _notify_receipt(payment)
     record_event(request, "payment.matched", target=payment, metadata={"lease": lease.reference})
     return payment
 

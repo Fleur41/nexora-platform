@@ -144,6 +144,24 @@ def _post_invoice(
     return invoice
 
 
+def _notify_invoice(invoice: Invoice) -> None:
+    from apps.notifications.services import notify, settings_for
+
+    if not settings_for(invoice.organization).invoice_notifications:
+        return
+    currency = invoice.currency
+    notify(
+        organization=invoice.organization,
+        kind="invoice_issued",
+        tenants=[invoice.tenant],
+        title=f"Invoice {invoice.number}: {currency} {invoice.total:,.2f}",
+        body=f"Hello {invoice.tenant.full_name.split()[0]}, invoice {invoice.number} for "
+        f"{currency} {invoice.total:,.2f} is due on {invoice.due_date:%d %b %Y}.",
+        tenant_link=f"/portal/invoices/{invoice.pk}",
+        dedupe_key=f"invoice:{invoice.pk}",
+    )
+
+
 def _apply_credit(request, lease, actor) -> None:
     """Settle new invoices from credit the tenant already holds (e.g. an overpayment)."""
     from apps.payments.services import apply_available_credit
@@ -163,6 +181,7 @@ def run_billing(
     month: date,
     trigger=BillingRun.Trigger.MANUAL,
     issue_date: date | None = None,
+    lease_ids=None,
 ) -> RunResult:
     """Bill a month. Safe to repeat: only lines not already billed are posted.
 
@@ -171,7 +190,7 @@ def run_billing(
     month = month.replace(day=1)
     _lock_organization_billing(organization)
     actor = request.user if request is not None else None
-    draft = draft_month(organization, month)
+    draft = draft_month(organization, month, lease_ids)
     today = organization_today(organization)
     issue_date = min(issue_date or today, today)
 
@@ -192,6 +211,7 @@ def run_billing(
                     )
                 )
                 _apply_credit(request, invoice_draft.lease, actor)
+                _notify_invoice(invoices[-1])
         except IntegrityError:
             skipped.append(
                 f"{invoice_draft.lease.reference}: already billed by a concurrent run; skipped."
@@ -283,6 +303,7 @@ def create_one_off_invoice(
         invoice.notes = notes
         invoice.save(update_fields=["notes", "updated_at"])
     _apply_credit(request, lease, request.user)
+    _notify_invoice(invoice)
     record_event(
         request,
         "invoice.created",
