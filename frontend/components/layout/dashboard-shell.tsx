@@ -10,6 +10,7 @@ import { OrganizationProvider, useOrganization } from "@/components/providers/or
 import { Button } from "@/components/ui/button";
 import { ErrorState } from "@/components/ui/states";
 import { useMyOrganizations } from "@/features/organizations/api";
+import { useTenancies } from "@/features/portal/api";
 import { errorMessage } from "@/lib/api/errors";
 import { getActiveOrganizationId, setActiveOrganizationId } from "@/lib/api/organization-store";
 import { DASHBOARD_NAV } from "@/lib/navigation";
@@ -17,6 +18,7 @@ import { cn } from "@/lib/utils";
 import type { User } from "@/types/api";
 
 import { AuthGate, FullPageSkeleton } from "./auth-gate";
+import { NotificationBell } from "./notification-bell";
 import { OrganizationSwitcher } from "./organization-switcher";
 import { UserMenu } from "./user-menu";
 
@@ -38,9 +40,13 @@ function OrganizationGate({ user, children }: { user: User; children: React.Reac
     return (valid ?? orgs.data[0]!).organization.id;
   }, [orgs.data, chosenId]);
 
+  // Tenants have no organization of their own: send them to their portal, not onboarding.
+  const noOrganizations = orgs.data?.length === 0;
+  const tenancies = useTenancies(noOrganizations);
   React.useEffect(() => {
-    if (orgs.data?.length === 0) router.replace("/onboarding");
-  }, [orgs.data, router]);
+    if (!noOrganizations || !tenancies.data) return;
+    router.replace(tenancies.data.length > 0 ? "/portal" : "/onboarding");
+  }, [noOrganizations, tenancies.data, router]);
 
 
   const handleSwitch = React.useCallback(
@@ -77,6 +83,7 @@ function OrganizationGate({ user, children }: { user: User; children: React.Reac
 
 function ShellLayout({ user, children }: { user: User; children: React.ReactNode }) {
   const [mobileOpen, setMobileOpen] = React.useState(false);
+  const { current, organizations } = useOrganization();
 
   return (
     <div className="flex min-h-screen bg-muted/40 print:bg-white">
@@ -112,6 +119,7 @@ function ShellLayout({ user, children }: { user: User; children: React.ReactNode
             <span className="sr-only">Open navigation</span>
           </Button>
           <div className="flex-1" />
+          <NotificationBell timeZone={current.organization.timezone} showOrganization={organizations.length > 1} />
           <UserMenu user={user} />
         </header>
         <main className="flex-1 px-4 py-6 sm:px-6 lg:px-8">{children}</main>

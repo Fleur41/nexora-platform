@@ -106,8 +106,11 @@ def _split_evenly(total: Decimal, n: int) -> list[Decimal]:
 
 
 class _Drafter:
-    def __init__(self, organization, month: date):
+    def __init__(self, organization, month: date, lease_ids=None):
         self.organization = organization
+        # Lease-scoped runs (e.g. a final bill at move-out) skip shared costs, which must be
+        # split across every sharing unit in an organization-wide run.
+        self.lease_ids = lease_ids
         self.month = month
         self.month_end = month_end(month)
         self.today = organization_today(organization)
@@ -309,9 +312,12 @@ class _Drafter:
     # --- assembly -------------------------------------------------------------
 
     def draft(self) -> MonthDraft:
-        leases = list(_occupied_leases(self.organization, self.month))
+        leases = _occupied_leases(self.organization, self.month)
+        if self.lease_ids is not None:
+            leases = leases.filter(pk__in=self.lease_ids)
+        leases = list(leases)
         readings = _readings_by_unit([lease.unit_id for lease in leases], self.month_end)
-        shared = self.shared_allocations(leases)
+        shared = self.shared_allocations(leases) if self.lease_ids is None else {}
 
         drafts: list[DraftInvoice] = []
         for lease in leases:
@@ -373,5 +379,5 @@ class _Drafter:
         )
 
 
-def draft_month(organization, month: date) -> MonthDraft:
-    return _Drafter(organization, month.replace(day=1)).draft()
+def draft_month(organization, month: date, lease_ids=None) -> MonthDraft:
+    return _Drafter(organization, month.replace(day=1), lease_ids).draft()

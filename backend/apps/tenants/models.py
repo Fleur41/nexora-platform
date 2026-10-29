@@ -39,6 +39,15 @@ class Tenant(OrganizationScopedModel):
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, null=True, on_delete=models.SET_NULL, related_name="+"
     )
+    # Tenant portal login. A tenant record is linked to at most one user account, which
+    # can only ever see this tenant's own records (see apps.portal).
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="tenancies",
+    )
 
     class Meta:
         ordering = ["full_name"]
@@ -47,9 +56,46 @@ class Tenant(OrganizationScopedModel):
                 fields=["organization", "id_type", "id_number"],
                 condition=~Q(id_number=""),
                 name="tenants_tenant_unique_identity",
-            )
+            ),
+            models.UniqueConstraint(
+                fields=["organization", "user"],
+                condition=Q(user__isnull=False),
+                name="tenants_one_tenant_per_user_per_org",
+            ),
         ]
         indexes = [models.Index(fields=["organization", "status"])]
 
     def __str__(self) -> str:
         return self.full_name
+
+
+class PortalInvitation(OrganizationScopedModel):
+    """Invites a tenant to the tenant portal. Only the token's hash is stored."""
+
+    class Status(models.TextChoices):
+        PENDING = "pending", "Pending"
+        ACCEPTED = "accepted", "Accepted"
+        REVOKED = "revoked", "Revoked"
+
+    tenant = models.ForeignKey(Tenant, on_delete=models.CASCADE, related_name="portal_invitations")
+    email = models.EmailField()
+    token_hash = models.CharField(max_length=64, unique=True, editable=False)
+    status = models.CharField(max_length=16, choices=Status.choices, default=Status.PENDING)
+    expires_at = models.DateTimeField()
+    invited_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, on_delete=models.SET_NULL, related_name="+"
+    )
+    accepted_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["tenant"],
+                condition=Q(status="pending"),
+                name="tenants_one_pending_portal_invite",
+            )
+        ]
+
+    def __str__(self) -> str:
+        return f"Portal invitation for {self.tenant}"

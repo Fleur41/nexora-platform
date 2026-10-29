@@ -25,7 +25,8 @@ export function QueryProvider({ children }: { children: React.ReactNode }) {
   return (
     <QueryClientProvider client={client}>
       {children}
-      <Toaster richColors position="bottom-right" closeButton />
+      {/* On phones, clear the tenant app's bottom tab bar. */}
+      <Toaster richColors position="bottom-right" closeButton mobileOffset={{ bottom: "calc(4.5rem + env(safe-area-inset-bottom))" }} />
     </QueryClientProvider>
   );
 }

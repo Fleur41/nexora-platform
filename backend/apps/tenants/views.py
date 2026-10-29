@@ -10,9 +10,10 @@ from apps.core.exceptions import BusinessRuleViolation
 from apps.organizations.access import OrganizationScopedViewSet, RefetchOnWriteMixin
 from apps.properties.services import update_instance
 
+from . import portal_access
 from .access import accessible_tenants
 from .models import Tenant
-from .serializers import TenantSerializer
+from .serializers import PortalInviteSerializer, TenantSerializer
 
 
 class TenantViewSet(
@@ -32,6 +33,8 @@ class TenantViewSet(
         "partial_update": "tenants.manage",
         "archive": "tenants.manage",
         "restore": "tenants.manage",
+        "portal_invite": "tenants.portal",
+        "portal_revoke": "tenants.portal",
     }
     filterset_fields = ["status"]
     search_fields = ["full_name", "phone", "email", "id_number"]
@@ -82,4 +85,21 @@ class TenantViewSet(
     def _set_status(self, tenant, status):
         action = "tenant.archived" if status == Tenant.Status.ARCHIVED else "tenant.restored"
         update_instance(request=self.request, instance=tenant, action=action, status=status)
+        return Response(self.get_serializer(self.get_queryset().get(pk=tenant.pk)).data)
+
+    @extend_schema(request=PortalInviteSerializer, responses=TenantSerializer)
+    @action(detail=True, methods=["post"], url_path="portal-invite")
+    def portal_invite(self, request, pk=None):
+        tenant = self.get_object()
+        serializer = PortalInviteSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        portal_access.invite(
+            request=request, tenant=tenant, email=serializer.validated_data["email"]
+        )
+        return Response(self.get_serializer(self.get_queryset().get(pk=tenant.pk)).data)
+
+    @extend_schema(request=None, responses=TenantSerializer)
+    @action(detail=True, methods=["post"], url_path="portal-revoke")
+    def portal_revoke(self, request, pk=None):
+        tenant = portal_access.revoke_access(request=request, tenant=self.get_object())
         return Response(self.get_serializer(self.get_queryset().get(pk=tenant.pk)).data)

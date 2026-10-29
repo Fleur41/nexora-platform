@@ -34,7 +34,15 @@ class DocumentViewSet(
         "destroy": None,
         "download": None,
     }
-    filterset_fields = ["property", "unit", "tenant", "lease", "category"]
+    filterset_fields = [
+        "property",
+        "unit",
+        "tenant",
+        "lease",
+        "maintenance_request",
+        "inspection",
+        "category",
+    ]
     search_fields = ["title", "original_filename"]
     parser_classes = [MultiPartParser, FormParser]
 

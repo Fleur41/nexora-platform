@@ -1,6 +1,6 @@
 "use client";
 
-import { LogOut, UserRound } from "lucide-react";
+import { Home, LogOut, UserRound } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -14,6 +14,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useLogout } from "@/features/auth/api";
+import { useTenancies } from "@/features/portal/api";
 import { errorMessage } from "@/lib/api/errors";
 import { initials } from "@/lib/utils";
 import type { User } from "@/types/api";
@@ -21,6 +22,7 @@ import type { User } from "@/types/api";
 export function UserMenu({ user }: { user: User }) {
   const logout = useLogout();
   const router = useRouter();
+  const tenancies = useTenancies();
   return (
     <DropdownMenu>
       <DropdownMenuTrigger className="flex size-9 items-center justify-center rounded-full bg-primary text-sm font-medium text-primary-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
@@ -38,6 +40,13 @@ export function UserMenu({ user }: { user: User }) {
             <UserRound /> My account
           </Link>
         </DropdownMenuItem>
+        {Boolean(tenancies.data?.length) && (
+          <DropdownMenuItem asChild>
+            <Link href="/portal">
+              <Home /> My tenant portal
+            </Link>
+          </DropdownMenuItem>
+        )}
         <DropdownMenuItem
           onSelect={() =>
             logout.mutate(undefined, {

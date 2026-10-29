@@ -144,3 +144,54 @@ class LeaseRentTerm(TimeStampedModel):
 
     def __str__(self) -> str:
         return f"{self.lease.reference}: {self.monthly_rent} from {self.effective_from}"
+
+
+class MoveOutNotice(OrganizationScopedModel):
+    """A tenant's notice to vacate. Private to staff with moveouts.view (and the tenant).
+    Never changes the unit by itself; acknowledging marks it "notice submitted", and only the
+    move-out settlement ends the lease and sets the unit's next status."""
+
+    class Status(models.TextChoices):
+        SUBMITTED = "submitted", "Submitted"
+        ACKNOWLEDGED = "acknowledged", "Acknowledged"
+        INSPECTION_SCHEDULED = "inspection_scheduled", "Inspection scheduled"
+        COMPLETED = "completed", "Moved out"
+        WITHDRAWN = "withdrawn", "Withdrawn"
+
+    OPEN_STATUSES = (Status.SUBMITTED, Status.ACKNOWLEDGED, Status.INSPECTION_SCHEDULED)
+
+    lease = models.ForeignKey(Lease, on_delete=models.PROTECT, related_name="move_out_notices")
+    tenant = models.ForeignKey(
+        "tenants.Tenant", on_delete=models.PROTECT, related_name="move_out_notices"
+    )
+    intended_date = models.DateField()
+    message = models.TextField(blank=True)
+    from_tenant = models.BooleanField(default=False)
+    status = models.CharField(max_length=24, choices=Status.choices, default=Status.SUBMITTED)
+    staff_notes = models.TextField(blank=True, help_text="Internal; never shown to the tenant.")
+    inspection = models.ForeignKey(
+        "inspections.Inspection",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="move_out_notices",
+    )
+    settlement = models.JSONField(default=dict, blank=True)
+    submitted_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, on_delete=models.SET_NULL, related_name="+"
+    )
+    acknowledged_at = models.DateTimeField(null=True, blank=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["lease"],
+                condition=Q(status__in=["submitted", "acknowledged", "inspection_scheduled"]),
+                name="leases_one_open_move_out_notice",
+            )
+        ]
+
+    def __str__(self) -> str:
+        return f"Move-out notice {self.lease.reference} for {self.intended_date}"

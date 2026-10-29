@@ -10,7 +10,11 @@
     "typecheck": "next typegen && tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test --project=desktop --project=mobile",
+    "test:e2e:headed": "HEADED=1 playwright test --project=desktop --project=mobile",
+    "test:regression": "HEADED=1 playwright test --project=regression",
+    "test:regression:ci": "playwright test --project=regression",
+    "test:e2e:report": "playwright show-report"
   },
   "dependencies": {
     "@hookform/resolvers": "^6.0.0",

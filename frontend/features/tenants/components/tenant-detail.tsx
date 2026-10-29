@@ -22,6 +22,7 @@ import { ApiError, errorMessage } from "@/lib/api/errors";
 import { ID_TYPE } from "@/lib/labels";
 import { formatDay, formatMoney } from "@/lib/utils";
 
+import { PortalAccessCard } from "./portal-access-card";
 import { TenantFormDialog } from "./tenant-form-dialog";
 
 export function TenantDetail() {
@@ -153,6 +154,7 @@ export function TenantDetail() {
             </Card>
           )}
         </div>
+        <div className="space-y-6">
         <Card className="h-fit">
           <CardHeader>
             <CardTitle>Details</CardTitle>
@@ -184,6 +186,8 @@ export function TenantDetail() {
             </dl>
           </CardContent>
         </Card>
+        {can("tenants.portal") && t.status === "active" && <PortalAccessCard tenant={t} />}
+        </div>
       </div>
 
       <TenantFormDialog open={editing} onOpenChange={setEditing} tenant={t} />

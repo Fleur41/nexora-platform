@@ -89,9 +89,9 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
 }
 
 /** Fetch a private file (documents need the organization header, so no plain links). */
-export async function apiDownload(path: string): Promise<Blob> {
+export async function apiDownload(path: string, opts: { scoped?: boolean } = {}): Promise<Blob> {
   const headers: Record<string, string> = {};
-  const organizationId = getActiveOrganizationId();
+  const organizationId = opts.scoped === false ? null : getActiveOrganizationId();
   if (organizationId) headers["X-Organization-ID"] = organizationId;
   let res: Response;
   try {
@@ -118,7 +118,8 @@ export const api = {
     apiRequest<T>(path, { ...opts, method: "POST", body }),
   patch: <T>(path: string, body?: unknown, opts?: Omit<RequestOptions, "method" | "body">) =>
     apiRequest<T>(path, { ...opts, method: "PATCH", body }),
-  upload: <T>(path: string, form: FormData) => apiRequest<T>(path, { method: "POST", body: form }),
+  upload: <T>(path: string, form: FormData, opts?: Omit<RequestOptions, "method" | "body">) =>
+    apiRequest<T>(path, { ...opts, method: "POST", body: form }),
   delete: <T = void>(path: string, opts?: Omit<RequestOptions, "method">) =>
     apiRequest<T>(path, { ...opts, method: "DELETE" }),
 };

@@ -106,9 +106,30 @@ history), #19 (provider failures handled safely), plus #1/#15/#18 for payments.
 **Not live yet:** M-Pesa has only been exercised against a simulated Daraja. Real sandbox/production
 use needs the landlord's Daraja credentials and a public HTTPS URL ([mpesa.md](mpesa.md)).
 
-## Phase 5 — Maintenance and operations
+## Phase 5 — Maintenance and operations ✅ complete
 Maintenance requests and work orders, inspections, move-out workflow, deposit settlement,
 notification abstraction (in-app/email/SMS) with delivery records and de-duplication.
+
+- [x] Maintenance: tenant/staff reporting, status workflow, assignment, quotes and costs
+      (restricted to `maintenance.costs`), tenant-visible updates vs internal notes, photos
+- [x] Inspections: move-in/move-out/routine, default checklist, conditions, damage charges,
+      keys returned, typed signatures
+- [x] Move-outs: private notices, acknowledgement, inspection scheduling, settlement preview and
+      one-step completion (final bill, damages, deposit to arrears, refund, lease closure, unit)
+- [x] Notifications: in-app inbox and bell, email/SMS with de-duplication, scheduled reminders,
+      announcements, delivery log, per-organization settings
+- [x] Tenant portal (`/portal`): home balance, bills, receipts, statement, pay (M-Pesa prompt or
+      paybill/till/bank instructions), repairs with photos and messages, move-out notice
+- [x] Tenant mobile app: the portal is an installable web app (own manifest, icons, home-screen
+      install prompt incl. iOS instructions, offline page via a service worker that never
+      caches account data)
+- [x] Staff invite tenants to the app from the tenant page (email link, resend, revoke)
+- [x] Playwright page objects; smoke suite (7, incl. the tenant app at phone size) and a full
+      sign-up → move-out regression journey with the landlord and the tenant app side by side
+- [x] Phase 5 records in `seed_demo` (repairs, inspections, move-outs, announcements, a tenant
+      app account); seeding no longer emails back-filled invoices, and the organization-wide
+      security charge it skipped before is now created
+- [x] Tests: 188 backend, 37 frontend unit, 8 Playwright (7 smoke + 1 regression)
 
 ## Phase 6 — Reports and public website
 Financial and occupancy reports (monthly/yearly/custom), exports (CSV/XLSX/PDF), public listings,
@@ -120,26 +141,30 @@ support access, security review, accessibility audit, deployment and backup runb
 
 ## Known limitations (current)
 
-- Maintenance, notifications, the tenant portal and reports are not built yet; the navigation
-  lists only built pages.
+- Reports are not built yet; the navigation lists only built pages.
 - M-Pesa integration is untested against Safaricom's real APIs (needs credentials); no direct bank
-  API integration (CSV import only); receipts are printable pages, not emailed/SMSed yet (Phase 5).
+  API integration (CSV import only).
 - Payment allocation can't be moved between invoices after the fact; reverse and re-record instead.
-- Invoices are not yet emailed/SMSed to tenants or downloadable as PDF (Phases 5–6).
+- Tenants are notified of invoices and receipts (in the app and by email) and can print or save
+  them as PDF from the browser; there's no generated PDF attachment yet (Phase 6).
 - Shared costs split evenly per occupied unit; weighting by unit size or meter is not supported yet.
 - Proration is by calendar day for all charges; there is no per-charge "no proration" option yet.
-- Ending a lease is the authorized closing step only. Move-out notices, inspections and deposit
-  settlement arrive in Phase 5.
+- Move-out settlement doesn't credit unused days on a month that was already billed; staff credit
+  that invoice by hand if the agreement allows it (the settlement preview says so).
 - Property photos are private for now. Public listings (Phase 6) will add an explicit
   publish step for chosen photos.
 - Lists used in pickers (properties, tenants in the lease form) load the first 50–100 records
   plus server-side search. Very large portfolios will want typeahead pickers.
-- No tenant portal, platform admin console or subscriptions yet (Phases 5–7).
+- No platform admin console or subscriptions yet (Phases 6–7).
+- The tenant app is a web app installed to the home screen, not an App Store / Play Store app.
+  Push notifications are not enabled yet; tenants see notifications in the app and by email.
+- The tenant app works online only. Offline, it shows an offline page: nothing from the account is
+  cached on the phone, by design.
 - Email is console/Mailpit in development; there's no production email or SMS provider configured.
 - `Membership.status = suspended` exists in the model but has no API to set it yet (only removal).
 - Organization `status` (suspension) is changed only via the Django admin for now.
-- Browser tests cover the owner property flow and mobile auth pages. Invitation acceptance and
-  caretaker scoping are covered by API tests, not yet by browser tests.
+- Staff invitation acceptance and caretaker scoping are covered by API tests, not yet by browser
+  tests. The tenant invitation is covered end to end (email read from Mailpit).
 - `SECURE_HSTS_PRELOAD` is left off deliberately; enable it per deployment once the domain is ready.
 - PostgreSQL row-level security is not enabled; isolation is enforced in the application layer and
   covered by tests.

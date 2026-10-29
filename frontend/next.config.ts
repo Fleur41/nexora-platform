@@ -17,6 +17,9 @@ const nextConfig: NextConfig = {
   // Django routes end in "/"; don't let Next strip the slash before proxying.
   skipTrailingSlashRedirect: true,
   poweredByHeader: false,
+  // The floating dev-tools badge covers controls in every corner (sidebar, the tenant app's
+  // header and tab bar). Compile and runtime errors are still shown without it.
+  devIndicators: false,
   turbopack: {
     rules: {
       "*.css": {

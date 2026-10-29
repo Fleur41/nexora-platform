@@ -25,6 +25,8 @@ class DocumentSerializer(serializers.ModelSerializer):
             "unit",
             "tenant",
             "lease",
+            "maintenance_request",
+            "inspection",
             "uploaded_by_name",
             "created_at",
         ]
@@ -41,6 +43,8 @@ class DocumentUploadSerializer(serializers.Serializer):
     unit = serializers.UUIDField(required=False)
     tenant = serializers.UUIDField(required=False)
     lease = serializers.UUIDField(required=False)
+    maintenance_request = serializers.UUIDField(required=False)
+    inspection = serializers.UUIDField(required=False)
 
     def validate(self, attrs):
         membership = self.context["membership"]
