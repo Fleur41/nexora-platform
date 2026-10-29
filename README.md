@@ -87,6 +87,9 @@ EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend EMAIL_PORT=1025 \
   .venv/bin/python manage.py runserver
 ```
 
+For the browser tests also add `THROTTLE_AUTH=1000/min`: every test signs up fresh accounts, and
+the normal sign-in limit (10 a minute) would start refusing them part-way through a run.
+
 Otherwise in option B emails are printed to the Django console, and Celery tasks run inline
 (`CELERY_TASK_ALWAYS_EAGER=true`) so no worker is needed. To run a real worker instead, set it
 to `false` and run `.venv/bin/celery -A config worker -l info`.
@@ -108,7 +111,20 @@ Creates **Nexora Demo Homes (sample data)**:
 - **Charges:** security, garbage, metered water, included-in-rent water, a shared electricity bill, a parking charge, and one unit opted out of security.
 - **Billing history:** invoices since the earliest lease start, with tenants who pay on time, pay late, pay partially, overpay, or are in arrears.
 - **Payments:** M-Pesa, bank and cash payments, plus two unmatched M-Pesa payments waiting to be reconciled.
-- **Deposits:** received deposits, and one move-out with a deposit deduction and refund.
+- **Deposits:** received deposits, applied and refunded through the move-out settlement.
+- **Repairs:** requests in every state: new, a tenant-reported one in progress with an internal
+  note and the tenant's reply, one on hold awaiting quote approval, resolved, and closed with an
+  approved quote and the actual cost.
+- **Inspections:** a completed move-in inspection, an upcoming routine inspection, and move-out
+  inspections.
+- **Move-outs:** one completed (notice → inspection with a damage charge → settlement, unit set
+  under maintenance), a new private notice from a tenant, and one with the inspection booked.
+- **Announcements:** a water interruption for Ruaka Gardens and a fire drill for everyone.
+- **Tenant app:** one tenant (who pays partially, so there's a balance) can sign in to `/portal`
+  and sees their bills, repairs and notifications.
+
+While seeding, emails are switched off so back-filled invoices and receipts don't email anyone;
+in-app notifications are still recorded.
 
 It all goes through the normal services, so ledgers and audit logs are consistent. Sign in as any role, password `Admin@123` (local testing only; change it with `--password`):
 
@@ -118,6 +134,7 @@ It all goes through the normal services, so ledgers and audit logs are consisten
 | Property manager | demo-manager@nexora.test | Kilimani Heights only (assigned) |
 | Accountant | demo-accountant@nexora.test | all properties; billing and payments, no corrections |
 | Caretaker | demo-caretaker@nexora.test | Ruaka Gardens only; units, tenants' contacts, meters |
+| Tenant | demo-tenant@nexora.test | the tenant app (`/portal`) for their own home |
 
 Posted financial records can't be deleted (by design), so to start over, recreate the local
 database: `docker compose down -v && docker compose up -d db`, then migrate and seed again.
@@ -207,13 +224,22 @@ CI (`.github/workflows/ci.yml`) runs the same checks plus `manage.py check --dep
 
 ## Client walkthrough: a tenancy from start to finish
 
-This walkthrough takes one tenant through the whole life of a tenancy: sign-up, letting a
-unit, billing, payments, a repair, moving out and the final settlement. Follow it in order;
-each step builds on the one before. It takes about 20 minutes.
+This walkthrough takes one tenant through the whole life of a tenancy, from the landlord's side
+and the tenant's: sign-up, letting a unit, the tenant joining the tenant app, billing, payments,
+a repair, moving out and the final settlement. Follow it in order; each step builds on the one
+before. It takes about 30 minutes.
+
+**You need two windows.** Use your normal browser window as the **landlord**. For the
+**tenant**, use a private window (or a phone on the same network). Steps marked **Tenant app**
+happen in that window.
 
 Use a fresh account so the numbers below match. Where a step says **Check**, confirm you see
-that result before moving on. The same journey runs automatically with
+that result before moving on. The same journey runs automatically, in two browser windows, with
 `npm run test:regression` (see `frontend/e2e/README.md`).
+
+**Before you start:** the invitation in step 4 is sent by email. Locally, start Mailpit and run
+Django with email going to it (see *Running locally*); the emails appear at
+http://localhost:8025.
 
 **Dates used:** the lease starts on the **1st of last month**, so two months are billed. The
 move-out happens **today**.
@@ -252,7 +278,8 @@ move-out happens **today**.
 ### 3. Tenant and lease
 
 1. **Tenants → Register tenant**. **Full name:** Wanjiku Kamau · **Phone:** 0722 456 789 ·
-   **Email:** an address you can check · **ID number:** any → **Register tenant**.
+   **Email:** an address you can check (any address works with Mailpit) · **ID number:** any →
+   **Register tenant**.
 2. On the tenant's page choose **New lease**.
 3. **Property:** Riverside Apartments · **Unit:** R1. Rent and deposit fill in from the unit
    type (22,000 each). Set **Start date** to the 1st of last month → **Create lease**.
@@ -260,33 +287,51 @@ move-out happens **today**.
 **Check:** the lease **LSE-0001** shows **Active**. On the property page, R1 is now
 **Occupied**.
 
-### 4. Charges and two months of billing
+### 4. Tenant joins the tenant app
 
-1. **Charges → Add rule**. **Charge:** Security · **Amount:** 1500 · **Effective from:** the
-   1st of last month → **Save rule**.
+1. **Landlord:** open **Tenants → Wanjiku Kamau**. In the **Tenant app** card the badge says
+   **Not invited**. Check the email and choose **Send invitation**.
+   **Check:** the badge changes to **Invited**.
+2. Open the invitation email (Mailpit: http://localhost:8025) and copy the link.
+3. **Tenant app:** paste the link in the private window. Choose **Create account**, enter
+   Wanjiku's **Full name** and a **Password** (the email is filled in) → **Create account**, then
+   **Open my home**.
+
+**Check:** the tenant app says *Hi Wanjiku*, shows **Riverside Apartments · Unit R1** and a
+balance of **Ksh 0**. On a phone, the app offers to install itself (Android: **Install app**;
+iPhone: Share → **Add to Home Screen**). Back on the landlord's tenant page (refresh), the
+badge says **Using the app**.
+
+### 5. Charges and two months of billing
+
+1. **Landlord:** **Charges → Add rule**. **Charge:** Security · **Amount:** 1500 ·
+   **Effective from:** the 1st of last month → **Save rule**.
 2. **Billing → Generate invoices**. **Month:** last month → **Preview**.
    **Check:** *1 invoice totalling Ksh 23,500* (rent 22,000 + security 1,500).
 3. **Post invoices**.
 4. Repeat steps 2–3 for **this month**.
 
-**Check:** the billing list shows two invoices. On the lease page (**Leases → LSE-0001**) the
-**Balance** is **Ksh 47,000**.
+**Check:** the billing list shows two invoices, and on the lease page (**Leases → LSE-0001**)
+the **Balance** is **Ksh 47,000**. **Tenant app:** **Home** shows *You owe Ksh 47,000*, and
+**Bills** lists both bills.
 
-### 5. Deposit, payment and receipt
+### 6. Deposit, payment and receipt
 
-1. On the lease page, in the deposit card, choose **Record received**. **Amount:** 22000 ·
-   **Reference:** e.g. DEP-001 → **Save**.
+1. **Landlord:** on the lease page, in the deposit card, choose **Record received**.
+   **Amount:** 22000 · **Reference:** e.g. DEP-001 → **Save**.
    **Check:** **Held now** shows Ksh 22,000. The deposit is not added to what the tenant owes.
 2. Choose **Record payment**. **Amount:** 30000 · **Paid via:** Cash → **Record payment**.
    **Check:** a message confirms *Receipt RCT-00001 issued*, and the **Balance** drops to
    **Ksh 17,000**.
 3. **Payments → RCT-00001 → Receipt**.
+   **Check:** a printable receipt for Wanjiku Kamau showing *Account balance now: Ksh 17,000*.
 
-**Check:** a printable receipt for Wanjiku Kamau showing *Account balance now: Ksh 17,000*.
+**Check (Tenant app):** **Home** shows *You owe Ksh 17,000* and **Deposit held Ksh 22,000**.
+**Bills → Receipts → RCT-00001** shows the 30,000 receipt. **Pay** shows how to pay the rest.
 
-### 6. Announcement
+### 7. Announcement
 
-1. In the sidebar, open **Communications** (the **Announcements** tab).
+1. **Landlord:** open **Communications** (the **Announcements** tab).
 2. **Send to:** All properties · **Title:** Water interruption on Saturday · **Message:**
    Supply is off from 8am to 2pm for tank cleaning. Leave **Email** ticked → **Send** →
    **Send now**.
@@ -295,39 +340,48 @@ move-out happens **today**.
    **Check:** an email to the tenant's address for the announcement.
 4. Open **Reminders & channels**, set **Rent due reminder** to 5 days → **Save settings**.
 
-### 7. Maintenance, from report to close
+**Check (Tenant app):** the bell shows unread notifications, including the announcement.
 
-1. **Maintenance → New request**. **Property:** Riverside Apartments · **Unit:** R1 ·
-   **Category:** Plumbing · **Urgency:** High · **What's wrong?** Kitchen sink leaking ·
-   **Details:** Water pooling under the sink → **Create request**.
-2. Open the request and choose **Acknowledge**.
-3. In **Assignment**, choose who will handle it (or leave it to yourself), set a **Visit date**
-   → **Save assignment**.
+### 8. A repair reported in the tenant app
+
+1. **Tenant app:** **Repairs → Report a repair**. **What kind?** Plumbing · **How urgent?**
+   High · **What's wrong?** Kitchen sink leaking · **Details:** Water pooling under the sink.
+   Optionally add a photo (on a phone this opens the camera) → **Send report**.
+   **Check:** the repair shows **Sent to your landlord**.
+2. **Landlord:** **Maintenance** → open **Kitchen sink leaking** (marked *from tenant*) →
+   **Acknowledge**.
+3. In **Assignment**, choose who will handle it, set a **Visit date** → **Save assignment**.
 4. In **Quotes & costs**: type **Quotation**, **Amount** 2500, **Description** *Replace trap
    and seal*, **Supplier** *Westlands Plumbers* → **Add**, then **Approve**.
 5. Choose **Start work**.
 6. Tick **Internal note (never shown to the tenant)**, type *Plumber visited, waiting for a
-   part* → **Add update**. The note is marked **Internal**.
-7. Untick it, type *Fixed. Please report if it leaks again.* → **Add update**. This one is
-   visible to the tenant.
-8. Choose **Mark resolved**, then **Close**.
+   part* → **Add update**.
+7. Untick it, type *The plumber comes back tomorrow at 10am with the part.* → **Add update**.
+8. **Tenant app:** open the repair (refresh if it's already open).
+   **Check:** it shows **Being fixed** and the landlord's update about tomorrow, but **not** the
+   internal note. Reply *Thanks, someone will be home.* → **Send**.
+9. **Landlord:** refresh: the tenant's reply is under **Updates**. Choose **Mark resolved**,
+   then **Close**.
 
-**Check:** the request shows **Closed**, with every step listed under **Updates**.
+**Check:** the request shows **Closed** for the landlord and **Closed** in the tenant app.
 
-### 8. Move-out notice
+### 9. Move-out notice from the tenant app
 
-1. **Leases → LSE-0001 → Record move-out notice**. **Planned move-out date:** today ·
-   **Notes from the tenant:** Relocating to Nakuru for work → **Record notice**.
-2. **Move-outs** → open **Wanjiku Kamau**. The notice shows **New notice**.
-   Until it is acknowledged it stays private and the unit stays **Occupied**.
+1. **Tenant app:** **Move out**. **Date you plan to move out:** today · **Message:** Relocating
+   to Nakuru for work → **Send notice** → confirm.
+   **Check:** the notice shows **Notice sent**; it can be withdrawn until it's acknowledged.
+2. **Landlord:** the notice is private until acknowledged, so on the property page R1 is still
+   **Occupied**. Open **Move-outs → Wanjiku Kamau**: *Given by the tenant from the portal*,
+   with her message, status **New notice**.
 3. Choose **Acknowledge**, add **Staff notes** (optional) → **Acknowledge**.
 
-**Check:** the notice shows **Acknowledged**, and on the property page R1 is now
-**Notice submitted**.
+**Check:** on the property page R1 is now **Notice submitted**. **Tenant app:** **Move out**
+shows **Acknowledged**.
 
-### 9. Inspection with a damage charge
+### 10. Inspection with a damage charge
 
-1. On the move-out page choose **Schedule inspection**. **Date:** today → **Schedule**.
+1. **Landlord:** on the move-out page choose **Schedule inspection**. **Date:** today →
+   **Schedule**. (**Tenant app:** the move-out screen now shows the inspection date.)
 2. Click the inspection reference (**INS-0001**) to open the checklist.
 3. Optional: add an item that isn't on the standard list. **Area:** Balcony ·
    **Item:** Railing → **Add item**.
@@ -341,9 +395,9 @@ move-out happens **today**.
 **Check:** the inspection shows **Completed** with both signatures, and the checklist can no
 longer be edited.
 
-### 10. Settlement and refund
+### 11. Settlement and refund
 
-1. Go back to **Move-outs → Wanjiku Kamau**. The **Settle and close** card shows:
+1. **Landlord:** go back to **Move-outs → Wanjiku Kamau**. The **Settle and close** card shows:
 
    | | |
    | --- | --- |
@@ -355,21 +409,26 @@ longer be edited.
    | Balance still owed after | Ksh 0 |
 
    Damages come from the inspection automatically. To use a different amount, type it in
-   **Damages override**. Untick *Use the remaining deposit to clear unpaid rent and charges* to refund
-   the whole remainder instead.
+   **Damages override**. Untick *Use the remaining deposit to clear unpaid rent and charges* to
+   refund the whole remainder instead.
 2. **Unit R1 becomes:** Available · **Refund paid by:** M-Pesa · **Refund reference:** the
    M-Pesa code → **Complete move-out**, then confirm.
 
 **Check:** the notice shows **Moved out**, with a **Final settlement** record of the amounts.
 
-### 11. Lease ended and unit available again
+### 12. Lease ended, unit available again, tenant app up to date
 
-1. Open **Leases → LSE-0001**.
+1. **Landlord:** open **Leases → LSE-0001**.
    **Check:** status **Ended** and **Balance Ksh 0**. The deposit card shows the 3,000
    deduction and the 2,000 refund.
 2. Open **Properties → Riverside Apartments**.
    **Check:** unit R1 is **Available** and ready to let again.
-3. Optional: **Audit log** lists every action taken above, with who did it and when.
+3. **Tenant app:** **Home**.
+   **Check:** *You're all paid up*, and the home is marked **Ended**. **Move out** lists the
+   notice as **Moved out**, and **Pay** says there's no active lease. Her bills and receipts
+   stay available.
+4. Optional: **Audit log** lists every action taken above, by the landlord and the tenant, with
+   who did it and when.
 
 ## Tenant app
 

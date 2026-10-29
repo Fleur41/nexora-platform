@@ -1,4 +1,4 @@
-import { expect, test as base } from "@playwright/test";
+import { devices, expect, test as base, type Page } from "@playwright/test";
 
 import {
   AuthPage,
@@ -29,7 +29,18 @@ export interface App {
   portal: PortalPage;
 }
 
-export const test = base.extend<{ app: App; failOnPageErrors: void }>({
+/** Collect uncaught browser errors (hydration, runtime exceptions) on a page. */
+function trackErrors(page: Page): string[] {
+  const errors: string[] = [];
+  page.on("pageerror", (err) => errors.push(err.message));
+  return errors;
+}
+
+// The tenant uses the app on a phone. Browser type comes from the project, not the device.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const { defaultBrowserType, ...phone } = devices["Pixel 7"];
+
+export const test = base.extend<{ app: App; tenantApp: PortalPage; failOnPageErrors: void }>({
   app: async ({ page }, provide) => {
     await provide({
       auth: new AuthPage(page),
@@ -45,11 +56,22 @@ export const test = base.extend<{ app: App; failOnPageErrors: void }>({
       portal: new PortalPage(page),
     });
   },
-  // Any uncaught browser error (hydration, runtime exception) fails the test.
+  /**
+   * A second, phone-sized browser with its own session: the tenant's phone, next to the staff
+   * browser. Created only for tests that use it.
+   */
+  tenantApp: async ({ browser, baseURL }, provide) => {
+    const context = await browser.newContext({ ...phone, baseURL });
+    const page = await context.newPage();
+    const errors = trackErrors(page);
+    await provide(new PortalPage(page));
+    await context.close();
+    expect(errors, "uncaught browser errors in the tenant app").toEqual([]);
+  },
+  // Any uncaught browser error fails the test.
   failOnPageErrors: [
     async ({ page }, provide) => {
-      const errors: string[] = [];
-      page.on("pageerror", (err) => errors.push(err.message));
+      const errors = trackErrors(page);
       await provide();
       expect(errors, "uncaught browser errors").toEqual([]);
     },

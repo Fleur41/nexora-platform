@@ -82,4 +82,28 @@ export class PortalPage extends BasePage {
       await expect(this.text("Notice sent", true)).toBeVisible();
     });
   }
+
+  async openRepair(title: string): Promise<void> {
+    await this.openTab("Repairs");
+    await this.link(new RegExp(title)).click();
+    await expect(this.heading(title)).toBeVisible();
+  }
+
+  /** Repair status as the tenant sees it, e.g. “Seen by your landlord”, “Fixed”. */
+  async expectRepairStatus(status: string): Promise<void> {
+    await expect(this.text(status, true).first()).toBeVisible();
+  }
+
+  async expectNoticeStatus(status: string): Promise<void> {
+    await this.openTab("Move out");
+    await this.page.reload(); // the tenant may already be on this screen: refresh it
+    await expect(this.text(status, true).first()).toBeVisible();
+  }
+
+  async expectNotification(title: string | RegExp): Promise<void> {
+    await this.page.getByRole("button", { name: /^Notifications/ }).click();
+    await expect(this.page.getByRole("menuitem", { name: title }).first()).toBeVisible();
+    await this.page.keyboard.press("Escape");
+  }
 }
+

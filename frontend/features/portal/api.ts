@@ -15,25 +15,28 @@ import type {
 // Portal endpoints are scoped to the signed-in tenant; they never send X-Organization-ID.
 const opts = { scoped: false } as const;
 const base = (tenantId: string) => `/portal/tenancies/${tenantId}`;
+// The landlord and M-Pesa change a tenant's account, not the tenant: refetch whenever a screen
+// opens or the app returns to the foreground, so a payment or reply shows up straight away.
+const live = { staleTime: 0, refetchOnWindowFocus: true } as const;
 
 export function useTenancies(enabled = true) {
   return useQuery({ queryKey: ["portal", "tenancies"], queryFn: () => api.get<PortalTenancy[]>("/portal/tenancies/", undefined, opts), enabled });
 }
 
 export function usePortalSummary(tenantId: string) {
-  return useQuery({ queryKey: ["portal", tenantId, "summary"], queryFn: () => api.get<PortalSummary>(`${base(tenantId)}/`, undefined, opts) });
+  return useQuery({ ...live, queryKey: ["portal", tenantId, "summary"], queryFn: () => api.get<PortalSummary>(`${base(tenantId)}/`, undefined, opts) });
 }
 
 export function usePortalInvoices(tenantId: string) {
-  return useQuery({ queryKey: ["portal", tenantId, "invoices"], queryFn: () => api.get<PortalInvoice[]>(`${base(tenantId)}/invoices/`, undefined, opts) });
+  return useQuery({ ...live, queryKey: ["portal", tenantId, "invoices"], queryFn: () => api.get<PortalInvoice[]>(`${base(tenantId)}/invoices/`, undefined, opts) });
 }
 
 export function usePortalInvoice(tenantId: string, id: string) {
-  return useQuery({ queryKey: ["portal", tenantId, "invoices", id], queryFn: () => api.get<PortalInvoice>(`${base(tenantId)}/invoices/${id}/`, undefined, opts) });
+  return useQuery({ ...live, queryKey: ["portal", tenantId, "invoices", id], queryFn: () => api.get<PortalInvoice>(`${base(tenantId)}/invoices/${id}/`, undefined, opts) });
 }
 
 export function usePortalPayments(tenantId: string) {
-  return useQuery({ queryKey: ["portal", tenantId, "payments"], queryFn: () => api.get<PortalPayment[]>(`${base(tenantId)}/payments/`, undefined, opts) });
+  return useQuery({ ...live, queryKey: ["portal", tenantId, "payments"], queryFn: () => api.get<PortalPayment[]>(`${base(tenantId)}/payments/`, undefined, opts) });
 }
 
 export interface PortalReceipt extends PortalPayment {
@@ -45,7 +48,7 @@ export interface PortalReceipt extends PortalPayment {
 }
 
 export function usePortalReceipt(tenantId: string, id: string) {
-  return useQuery({ queryKey: ["portal", tenantId, "payments", id], queryFn: () => api.get<PortalReceipt>(`${base(tenantId)}/payments/${id}/`, undefined, opts) });
+  return useQuery({ ...live, queryKey: ["portal", tenantId, "payments", id], queryFn: () => api.get<PortalReceipt>(`${base(tenantId)}/payments/${id}/`, undefined, opts) });
 }
 
 export interface PortalStatement {
@@ -55,6 +58,7 @@ export interface PortalStatement {
 
 export function usePortalStatement(tenantId: string, leaseId: string, enabled = true) {
   return useQuery({
+    ...live,
     queryKey: ["portal", tenantId, "statement", leaseId],
     queryFn: () => api.get<PortalStatement>(`${base(tenantId)}/leases/${leaseId}/statement/`, undefined, opts),
     enabled: enabled && Boolean(leaseId),
@@ -62,11 +66,11 @@ export function usePortalStatement(tenantId: string, leaseId: string, enabled = 
 }
 
 export function usePortalMaintenanceList(tenantId: string) {
-  return useQuery({ queryKey: ["portal", tenantId, "maintenance"], queryFn: () => api.get<PortalMaintenance[]>(`${base(tenantId)}/maintenance/`, undefined, opts) });
+  return useQuery({ ...live, queryKey: ["portal", tenantId, "maintenance"], queryFn: () => api.get<PortalMaintenance[]>(`${base(tenantId)}/maintenance/`, undefined, opts) });
 }
 
 export function usePortalMaintenance(tenantId: string, id: string) {
-  return useQuery({ queryKey: ["portal", tenantId, "maintenance", id], queryFn: () => api.get<PortalMaintenance>(`${base(tenantId)}/maintenance/${id}/`, undefined, opts) });
+  return useQuery({ ...live, queryKey: ["portal", tenantId, "maintenance", id], queryFn: () => api.get<PortalMaintenance>(`${base(tenantId)}/maintenance/${id}/`, undefined, opts) });
 }
 
 function useInvalidatePortal(tenantId: string) {
@@ -124,7 +128,7 @@ export function usePortalPhoto(tenantId: string, requestId: string, photoId: str
 }
 
 export function usePortalMoveOuts(tenantId: string) {
-  return useQuery({ queryKey: ["portal", tenantId, "move-out"], queryFn: () => api.get<PortalMoveOut[]>(`${base(tenantId)}/move-out/`, undefined, opts) });
+  return useQuery({ ...live, queryKey: ["portal", tenantId, "move-out"], queryFn: () => api.get<PortalMoveOut[]>(`${base(tenantId)}/move-out/`, undefined, opts) });
 }
 
 export function useGivePortalNotice(tenantId: string) {

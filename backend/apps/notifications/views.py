@@ -7,11 +7,8 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from apps.audit.services import record_event
-from apps.leases.models import Lease
 from apps.organizations.access import OrganizationPermission, OrganizationScopedViewSet
 from apps.properties.access import accessible_properties
-from apps.tenants.models import Tenant
 
 from .models import Announcement, Notification
 from .serializers import (
@@ -20,7 +17,7 @@ from .serializers import (
     NotificationSerializer,
     NotificationSettingsSerializer,
 )
-from .services import notify, settings_for
+from .services import send_announcement, settings_for
 
 
 class InboxViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
@@ -120,34 +117,10 @@ class AnnouncementViewSet(
             from rest_framework.exceptions import ValidationError
 
             raise ValidationError({"property": ["Choose one of your properties."]})
-        announcement = serializer.save(
-            organization=self.request.organization, sent_by=self.request.user
-        )
-        leases = Lease.objects.filter(
-            organization=self.request.organization, status=Lease.Status.ACTIVE
-        )
-        leases = (
-            leases.filter(unit__property=prop)
-            if prop
-            else leases.filter(unit__property__in=allowed.values("pk"))
-        )
-        tenants = Tenant.objects.filter(pk__in=leases.values("tenant_id"))
-        sent = notify(
-            organization=self.request.organization,
-            kind="announcement",
-            tenants=tenants,
-            title=announcement.title,
-            body=announcement.body,
-            tenant_link="/portal",
-            dedupe_key=f"announcement:{announcement.pk}",
-            email=announcement.send_email,
-            sms=announcement.send_sms,
-        )
-        announcement.recipients = tenants.count()
-        announcement.save(update_fields=["recipients"])
-        record_event(
-            self.request,
-            "announcement.sent",
-            target=announcement,
-            metadata={"recipients": announcement.recipients, "messages": len(sent)},
+        send_announcement(
+            request=self.request,
+            announcement=serializer.save(
+                organization=self.request.organization, sent_by=self.request.user
+            ),
+            properties=allowed,
         )

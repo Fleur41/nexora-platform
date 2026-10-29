@@ -106,7 +106,7 @@ history), #19 (provider failures handled safely), plus #1/#15/#18 for payments.
 **Not live yet:** M-Pesa has only been exercised against a simulated Daraja. Real sandbox/production
 use needs the landlord's Daraja credentials and a public HTTPS URL ([mpesa.md](mpesa.md)).
 
-## Phase 5 — Maintenance and operations (in progress)
+## Phase 5 — Maintenance and operations ✅ complete
 Maintenance requests and work orders, inspections, move-out workflow, deposit settlement,
 notification abstraction (in-app/email/SMS) with delivery records and de-duplication.
 
@@ -124,8 +124,12 @@ notification abstraction (in-app/email/SMS) with delivery records and de-duplica
       install prompt incl. iOS instructions, offline page via a service worker that never
       caches account data)
 - [x] Staff invite tenants to the app from the tenant page (email link, resend, revoke)
-- [x] Playwright page objects; smoke suite (7) and a full sign-up → move-out regression journey
-- [ ] Phase 5 records in `seed_demo` (inspections, notices, announcements, portal tenant)
+- [x] Playwright page objects; smoke suite (7, incl. the tenant app at phone size) and a full
+      sign-up → move-out regression journey with the landlord and the tenant app side by side
+- [x] Phase 5 records in `seed_demo` (repairs, inspections, move-outs, announcements, a tenant
+      app account); seeding no longer emails back-filled invoices, and the organization-wide
+      security charge it skipped before is now created
+- [x] Tests: 188 backend, 37 frontend unit, 8 Playwright (7 smoke + 1 regression)
 
 ## Phase 6 — Reports and public website
 Financial and occupancy reports (monthly/yearly/custom), exports (CSV/XLSX/PDF), public listings,
@@ -139,9 +143,10 @@ support access, security review, accessibility audit, deployment and backup runb
 
 - Reports are not built yet; the navigation lists only built pages.
 - M-Pesa integration is untested against Safaricom's real APIs (needs credentials); no direct bank
-  API integration (CSV import only); receipts are printable pages, not emailed/SMSed yet (Phase 5).
+  API integration (CSV import only).
 - Payment allocation can't be moved between invoices after the fact; reverse and re-record instead.
-- Invoices are not yet emailed/SMSed to tenants or downloadable as PDF (Phases 5–6).
+- Tenants are notified of invoices and receipts (in the app and by email) and can print or save
+  them as PDF from the browser; there's no generated PDF attachment yet (Phase 6).
 - Shared costs split evenly per occupied unit; weighting by unit size or meter is not supported yet.
 - Proration is by calendar day for all charges; there is no per-charge "no proration" option yet.
 - Move-out settlement doesn't credit unused days on a month that was already billed; staff credit

@@ -29,6 +29,13 @@ export const tenant = {
   phone: "0722 456 789",
   email: `qa-tenant-${unique}@example.com`,
   idNumber: `3${unique.slice(-7)}`,
+  password: "Nexora-tenant-2026",
 };
 
 export const security = { charge: "Security", amount: "1500" };
+
+/** A 1×1 PNG, enough for a photo upload. */
+export const photo = Buffer.from(
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
+  "base64",
+);

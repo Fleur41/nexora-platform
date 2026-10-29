@@ -22,4 +22,20 @@ export class TenantsPage extends BasePage {
       await expect(this.heading(tenant.name)).toBeVisible();
     });
   }
+
+  async open(name: string): Promise<void> {
+    await this.openFromSidebar("Tenants");
+    await this.link(name).click();
+    await expect(this.heading(name)).toBeVisible();
+  }
+
+  /** On the tenant's page: send the tenant app invitation to their email. */
+  async inviteToApp(): Promise<void> {
+    await test.step("Invite the tenant to the tenant app", async () => {
+      await expect(this.text("Not invited", true)).toBeVisible();
+      await this.button("Send invitation").click();
+      await this.expectToast(/Invitation sent to/);
+      await expect(this.text("Invited", true)).toBeVisible();
+    });
+  }
 }

@@ -31,15 +31,22 @@ from apps.billing import services as billing
 from apps.billing.defaults import ensure_default_charge_types
 from apps.billing.models import BillingSettings, ChargeRule, Invoice, SharedCost
 from apps.deposits import services as deposits
+from apps.inspections import services as inspections
+from apps.inspections.models import Inspection
+from apps.leases import moveout
 from apps.leases import services as leases
-from apps.leases.models import Lease
+from apps.leases.models import Lease, MoveOutNotice
+from apps.maintenance import services as maintenance
+from apps.maintenance.models import MaintenanceCost, MaintenanceRequest
+from apps.notifications.models import Announcement
+from apps.notifications.services import send_announcement, settings_for
 from apps.organizations.models import Membership, Organization, organization_today
 from apps.organizations.roles import Role
 from apps.organizations.services import create_organization
 from apps.payments import services as payments
 from apps.payments.models import Payment, PaymentConfiguration
 from apps.properties import services as properties
-from apps.properties.models import PropertyAssignment, Unit
+from apps.properties.models import Property, PropertyAssignment, Unit
 from apps.tenants.models import Tenant
 from apps.utilities import services as utilities
 
@@ -77,6 +84,8 @@ TENANTS = [
     "Yusuf Ali",
     "Zipporah Moraa",
 ]
+# The sample tenant who uses the tenant app (signs in with the sample password).
+PORTAL_TENANT_EMAIL = "demo-tenant@nexora.test"
 # How each tenant tends to pay: share of the invoice paid, and days after the due date.
 PROFILES = {
     "prompt": (Decimal("1"), (0, 4)),
@@ -128,6 +137,8 @@ class Command(BaseCommand):
         if existing:
             for key, name, _ in STAFF:
                 self._user(key, name)  # resets sample passwords to the chosen one
+            if User.objects.filter(email=PORTAL_TENANT_EMAIL).exists():
+                self._user("tenant", "")
             self._attach_owner(existing, options.get("owner_email"))
             self.stdout.write(
                 self.style.WARNING(f"{ORG_NAME} already exists; nothing new created.")
@@ -174,6 +185,7 @@ class Command(BaseCommand):
         self.stdout.write(f"\nSample logins (password for all: {self.password})")
         for key, name, role in STAFF:
             self.stdout.write(f"  {Role(role).label:<26} demo-{key}@nexora.test  ({name})")
+        self.stdout.write(f"  {'Tenant (tenant app /portal)':<26} {PORTAL_TENANT_EMAIL}")
 
     # --- the seed ------------------------------------------------------------------------
 
@@ -190,6 +202,11 @@ class Command(BaseCommand):
         )
         owner_membership = Membership.objects.get(organization=org, user=owner)
         request = SeedRequest(owner, owner_membership)
+        # Billing and payments notify tenants. Don't email hundreds of historical invoices and
+        # receipts while back-filling; in-app notifications are still recorded.
+        notification_settings = settings_for(org)
+        notification_settings.email_enabled = False
+        notification_settings.save(update_fields=["email_enabled"])
         today = organization_today(org)
         self.stdout.write(f"Creating {ORG_NAME} …")
 
@@ -314,13 +331,14 @@ class Command(BaseCommand):
         def rule(**kw):
             return billing.create_rule(
                 request=request, organization=org, effective_from=since, **kw
-            )  # noqa: E731
-            rule(
-                charge_type=types["security"],
-                scope="organization",
-                method="fixed_monthly",
-                amount=Decimal("1500"),
             )
+
+        rule(
+            charge_type=types["security"],
+            scope="organization",
+            method="fixed_monthly",
+            amount=Decimal("1500"),
+        )
 
         rule(
             charge_type=types["garbage"],
@@ -557,37 +575,10 @@ class Command(BaseCommand):
                     month,
                 )
 
-        # The leaving tenant moved out on the last day of last month.
-        last_day_prev = today.replace(day=1) - timedelta(days=1)
-        leaving.refresh_from_db()
-        if leaving.status == Lease.Status.ACTIVE and leaving.start_date < last_day_prev:
-            leases.end_lease(
-                request=request,
-                lease=leaving,
-                ended_on=last_day_prev,
-                unit_status="awaiting_inspection",
-                reason="Relocating for work (sample)",
-            )
-            summary = deposits.summarize(leaving)
-            if summary.held > 0:
-                deposits.record(
-                    request=request,
-                    lease=leaving,
-                    kind="deduction",
-                    amount=Decimal("3000"),
-                    transaction_date=today,
-                    reason="Repainting and cleaning (sample)",
-                )
-                deposits.record(
-                    request=request,
-                    lease=leaving,
-                    kind="refund",
-                    amount=summary.held - Decimal("3000"),
-                    transaction_date=today,
-                    method="mpesa",
-                    reference=self._code("RF"),
-                    reason="Balance of deposit",
-                )
+        # Phase 5: the tenant app, repairs, inspections, move-outs and announcements.
+        portal_tenant = self._operations(
+            request, org, owner, members, all_leases, leases_by_profile, leaving, today
+        )
 
         # Two payments nobody could match (typos in the M-Pesa account number)
         for amount, account in ((Decimal("9500"), "R 12"), (Decimal("25000"), "KILIMANI")):
@@ -607,6 +598,8 @@ class Command(BaseCommand):
                 source=Payment.Source.MPESA_C2B,
             )
 
+        notification_settings.email_enabled = True
+        notification_settings.save(update_fields=["email_enabled"])
         record_event(
             request,
             "demo.seeded",
@@ -621,10 +614,313 @@ class Command(BaseCommand):
             "charge rules": ChargeRule.objects.filter(organization=org).count(),
             "invoices": Invoice.objects.filter(organization=org).count(),
             "payments": Payment.objects.filter(organization=org).count(),
+            "repairs": MaintenanceRequest.objects.filter(organization=org).count(),
+            "inspections": Inspection.objects.filter(organization=org).count(),
+            "move-out notices": MoveOutNotice.objects.filter(organization=org).count(),
+            "announcements": Announcement.objects.filter(organization=org).count(),
         }
         self.stdout.write(
             self.style.SUCCESS("Created: " + ", ".join(f"{v} {k}" for k, v in counts.items()))
         )
+        self.stdout.write(f"Tenant app account: {portal_tenant.full_name}")
+
+    def _operations(self, request, org, owner, members, all_leases, profiles, leaving, today):
+        """Phase 5 records, created through the same workflows staff and tenants use."""
+        owner_membership = request.membership
+        kilimani, ruaka = (
+            Property.objects.get(organization=org, name=n)
+            for n in ("Kilimani Heights", "Ruaka Gardens")
+        )
+
+        def handler(unit):
+            """Who looks after a unit: the assigned manager or caretaker, else the owner."""
+            if unit.property_id == kilimani.pk:
+                return members["manager"]
+            if unit.property_id == ruaka.pk:
+                return members["caretaker"]
+            return owner_membership
+
+        def all_good(inspection, findings=()):
+            items = [{"id": str(i.pk), "condition": "good"} for i in inspection.items.all()]
+            for name, condition, notes, charge in findings:
+                item = inspection.items.filter(name=name).order_by("position").first()
+                items.append(
+                    {
+                        "id": str(item.pk),
+                        "condition": condition,
+                        "notes": notes,
+                        "charge_amount": charge,
+                    }
+                )
+            inspections.update_items(request=request, inspection=inspection, items=items)
+
+        # The tenant app: a tenant who pays partially, so the app shows a balance to pay.
+        portal_lease = next(
+            lease
+            for lease in all_leases
+            if profiles[lease.pk] == "partial" and lease.pk != leaving.pk
+        )
+        tenant = portal_lease.tenant
+        tenant.email = PORTAL_TENANT_EMAIL
+        tenant.user = self._user("tenant", tenant.full_name)
+        tenant.save(update_fields=["email", "user", "updated_at"])
+        tenant_user = tenant.user
+
+        # Repairs in every state.
+        unit = portal_lease.unit
+        tap = maintenance.create_request(
+            request=request,
+            organization=org,
+            unit=unit,
+            category="plumbing",
+            title="Bathroom tap keeps dripping",
+            description="The hot tap in the bathroom drips all night, even when closed tightly.",
+            tenant=tenant,
+            source=MaintenanceRequest.Source.TENANT,
+            actor=tenant_user,
+        )
+        maintenance.change_status(
+            request=request,
+            req=tap,
+            status="acknowledged",
+            note=f"Thanks. The plumber will come on {today + timedelta(days=2):%A %d %B}.",
+        )
+        maintenance.assign(
+            request=request,
+            req=tap,
+            membership=handler(unit),
+            scheduled_for=today + timedelta(days=2),
+        )
+        maintenance.add_update(
+            request=request,
+            req=tap,
+            body="Bring a spare cartridge; the tap is an old model.",
+            internal=True,
+        )
+        maintenance.add_update(
+            request=request,
+            req=tap,
+            body="Thank you, someone is home after 5pm.",
+            internal=False,
+            from_tenant=True,
+            actor=tenant_user,
+        )
+
+        by_number = {lease.unit.number: lease for lease in all_leases if lease.pk != leaving.pk}
+        heater = maintenance.create_request(
+            request=request,
+            organization=org,
+            unit=by_number["A2"].unit,
+            category="appliance",
+            title="No hot water: water heater not working",
+            description="The water heater trips the breaker as soon as it is switched on.",
+            urgency="emergency",
+        )
+        maintenance.change_status(request=request, req=heater, status="acknowledged")
+        maintenance.assign(
+            request=request, req=heater, membership=members["manager"], scheduled_for=today
+        )
+        maintenance.change_status(
+            request=request, req=heater, status="in_progress", note="Electrician on site."
+        )
+        quote = maintenance.add_cost(
+            request=request,
+            req=heater,
+            kind=MaintenanceCost.Kind.QUOTATION,
+            description="Replace heating element and thermostat",
+            amount=Decimal("8500"),
+            supplier_name="Kilimani Electricals (sample)",
+        )
+        maintenance.decide_quotation(request=request, cost=quote, approve=True)
+        maintenance.add_cost(
+            request=request,
+            req=heater,
+            kind=MaintenanceCost.Kind.EXPENSE,
+            description="Heating element and thermostat fitted",
+            amount=Decimal("8200"),
+            supplier_name="Kilimani Electricals (sample)",
+            incurred_on=today,
+        )
+        maintenance.change_status(
+            request=request, req=heater, status="resolved", note="Hot water is back."
+        )
+        maintenance.change_status(request=request, req=heater, status="closed")
+
+        maintenance.create_request(
+            request=request,
+            organization=org,
+            unit=by_number["R2"].unit,
+            category="plumbing",
+            title="Kitchen drain blocked",
+            description="Reported by phone: the kitchen sink drains very slowly.",
+            urgency="high",
+        )
+
+        paint = maintenance.create_request(
+            request=request,
+            organization=org,
+            unit=by_number["B2"].unit,
+            category="structural",
+            title="Living room walls need repainting",
+            description="Damp patches by the window have stained the paint.",
+            urgency="low",
+        )
+        maintenance.change_status(request=request, req=paint, status="acknowledged")
+        maintenance.add_cost(
+            request=request,
+            req=paint,
+            kind=MaintenanceCost.Kind.QUOTATION,
+            description="Treat damp and repaint living room",
+            amount=Decimal("18000"),
+            supplier_name="Nairobi Painters (sample)",
+        )
+        maintenance.change_status(
+            request=request,
+            req=paint,
+            status="on_hold",
+            note="Waiting for the owner to approve the quote.",
+        )
+
+        lock = maintenance.create_request(
+            request=request,
+            organization=org,
+            unit=by_number["N1"].unit,
+            category="security",
+            title="Balcony door lock is stiff",
+            description="The balcony door lock is hard to turn and sometimes jams.",
+        )
+        maintenance.change_status(request=request, req=lock, status="in_progress")
+        maintenance.change_status(
+            request=request, req=lock, status="resolved", note="Lock oiled and adjusted."
+        )
+
+        # Inspections: a completed move-in and an upcoming routine check.
+        newest = max(
+            (lease for lease in all_leases if lease.pk not in (leaving.pk, portal_lease.pk)),
+            key=lambda lease: lease.start_date,
+        )
+        move_in = inspections.schedule(
+            request=request,
+            organization=org,
+            unit=newest.unit,
+            kind="move_in",
+            scheduled_for=newest.start_date,
+            lease=newest,
+            inspector=handler(newest.unit),
+        )
+        all_good(
+            move_in,
+            [("Walls and paint", "fair", "Small marks by the door, noted at move-in.", None)],
+        )
+        inspections.complete(
+            request=request,
+            inspection=move_in,
+            summary="Unit handed over clean; 3 keys issued.",
+            keys_returned=None,
+            tenant_present=True,
+            tenant_signature_name=newest.tenant.full_name,
+            inspector_signature_name=handler(newest.unit).user.full_name,
+        )
+        inspections.schedule(
+            request=request,
+            organization=org,
+            unit=by_number["N3"].unit,
+            kind="routine",
+            scheduled_for=today + timedelta(days=10),
+            inspector=owner_membership,
+        )
+
+        # Move-outs. The leaving tenant moved out at the end of last month, through the full
+        # workflow: notice → acknowledged → inspection with a damage charge → settlement.
+        last_day_prev = today.replace(day=1) - timedelta(days=1)
+        leaving.refresh_from_db()
+        if leaving.status == Lease.Status.ACTIVE and leaving.start_date < last_day_prev:
+            # Created directly: the service only accepts notices for future dates.
+            notice = MoveOutNotice.objects.create(
+                organization=org,
+                lease=leaving,
+                tenant=leaving.tenant,
+                intended_date=last_day_prev,
+                message="Relocating for work (sample).",
+                from_tenant=True,
+                submitted_by=owner,
+            )
+            moveout.acknowledge(request=request, notice=notice, staff_notes="Confirmed by phone.")
+            notice = moveout.schedule_inspection(
+                request=request,
+                notice=notice,
+                scheduled_for=last_day_prev,
+                inspector=handler(leaving.unit),
+            )
+            all_good(
+                notice.inspection,
+                [("Walls and paint", "damaged", "Marks and nail holes throughout.", "3000")],
+            )
+            inspections.complete(
+                request=request,
+                inspection=notice.inspection,
+                summary="Needs repainting; otherwise clean.",
+                keys_returned=2,
+                tenant_present=True,
+                tenant_signature_name=leaving.tenant.full_name,
+                inspector_signature_name=handler(leaving.unit).user.full_name,
+            )
+            moveout.complete_move_out(
+                request=request,
+                notice=notice,
+                moved_out_on=last_day_prev,
+                unit_status="under_maintenance",
+                apply_deposit_to_balance=True,
+                refund_method="mpesa",
+                refund_reference=self._code("RF"),
+                notes="Unit to be repainted before re-letting.",
+            )
+
+        # A new notice the tenant just gave (still private), and one with the inspection booked.
+        month_end = (today.replace(day=1) + timedelta(days=62)).replace(day=1) - timedelta(days=1)
+        moveout.submit_notice(
+            request=request,
+            lease=by_number["A5"],
+            intended_date=month_end,
+            message="Moving to Kisumu at the end of next month (sample).",
+            from_tenant=True,
+        )
+        booked = moveout.submit_notice(
+            request=request,
+            lease=by_number["N2"],
+            intended_date=today + timedelta(days=14),
+            message="Buying a house in Mtwapa (sample).",
+            from_tenant=False,
+        )
+        moveout.acknowledge(request=request, notice=booked, staff_notes="Notice given in person.")
+        moveout.schedule_inspection(
+            request=request,
+            notice=booked,
+            scheduled_for=today + timedelta(days=13),
+            inspector=owner_membership,
+        )
+
+        # Announcements (reach the tenant app inbox).
+        for title, body, prop in (
+            (
+                "Water interruption on Saturday",
+                "Ruaka Water will cut supply from 8am to 2pm for tank cleaning. Store some water.",
+                ruaka,
+            ),
+            (
+                "Fire drill next week",
+                "We will hold a short fire drill in every building next Wednesday at 10am.",
+                None,
+            ),
+        ):
+            send_announcement(
+                request=request,
+                announcement=Announcement.objects.create(
+                    organization=org, title=title, body=body, property=prop, sent_by=owner
+                ),
+                properties=Property.objects.filter(organization=org),
+            )
+        return tenant
 
     def _pay(self, request, org, invoice, profile, paybill, bank, today, month):
         share, (low, high) = PROFILES[profile]

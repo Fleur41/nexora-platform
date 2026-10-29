@@ -174,3 +174,41 @@ def deliver(notification: Notification) -> Notification:
             notification.status = Notification.Status.FAILED
     notification.save(update_fields=["status", "sent_at", "error", "attempts", "updated_at"])
     return notification
+
+
+def send_announcement(*, request, announcement, properties) -> list[Notification]:
+    """Send a saved announcement to tenants with an active lease in its property (or in any of
+    `properties`, the sender's accessible properties, when it isn't limited to one)."""
+    from apps.audit.services import record_event
+    from apps.leases.models import Lease
+    from apps.tenants.models import Tenant
+
+    leases = Lease.objects.filter(
+        organization=announcement.organization, status=Lease.Status.ACTIVE
+    )
+    leases = (
+        leases.filter(unit__property=announcement.property)
+        if announcement.property_id
+        else leases.filter(unit__property__in=properties.values("pk"))
+    )
+    tenants = Tenant.objects.filter(pk__in=leases.values("tenant_id"))
+    sent = notify(
+        organization=announcement.organization,
+        kind="announcement",
+        tenants=tenants,
+        title=announcement.title,
+        body=announcement.body,
+        tenant_link="/portal",
+        dedupe_key=f"announcement:{announcement.pk}",
+        email=announcement.send_email,
+        sms=announcement.send_sms,
+    )
+    announcement.recipients = tenants.count()
+    announcement.save(update_fields=["recipients"])
+    record_event(
+        request,
+        "announcement.sent",
+        target=announcement,
+        metadata={"recipients": announcement.recipients, "messages": len(sent)},
+    )
+    return sent

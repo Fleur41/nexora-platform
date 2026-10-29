@@ -1,21 +1,28 @@
 import * as data from "../support/data";
 import { expect, test } from "../support/fixtures";
+import { linkFromEmail } from "../support/mailbox";
 
 /**
- * Full regression journey, start to finish, entirely through the UI:
- * sign-up → property → tenant → lease → charges and billing → deposit and payment →
- * announcement → maintenance → move-out notice → inspection → settlement → unit released.
+ * Full regression journey, start to finish, entirely through the UI, with two browsers: the
+ * landlord's (`app`) and the tenant's phone (`tenantApp`, the installable tenant app).
+ *
+ *   sign-up → property → tenant and lease → tenant joins the app → billing → deposit and
+ *   payment → announcement → repair reported in the app → notice given in the app →
+ *   inspection → settlement → lease ended, unit available, tenant app shows it all
  *
  * Each stage depends on the one before, so it is one test with named steps (the report
  * shows exactly which stage failed). Amounts used throughout:
  *   rent 22,000 + security 1,500 = 23,500 a month, billed for 2 months = 47,000
  *   deposit 22,000 held; cash payment 30,000 → balance 17,000
  *   damages 3,000 → 19,000 left; 17,000 clears the balance; 2,000 refunded
+ *
+ * Needs Mailpit for the invitation email (see e2e/README.md).
  */
 test.describe("Regression: full property lifecycle", () => {
-  test("owner runs a tenancy from sign-up to move-out settlement", async ({ app, page }) => {
+  test("landlord and tenant run a tenancy from sign-up to move-out settlement", async ({ app, tenantApp, page }) => {
     let leaseUrl = "";
     const unit = `${data.unitPrefix}1`;
+    const repair = "Kitchen sink leaking";
 
     await test.step("1. Sign up and create the organization", async () => {
       await app.auth.register(data.owner);
@@ -41,25 +48,48 @@ test.describe("Regression: full property lifecycle", () => {
       await expect(app.properties.unitTile(unit, "Occupied")).toBeVisible();
     });
 
-    await test.step("4. Charges and two months of billing", async () => {
+    await test.step("4. Tenant joins the tenant app from the email invitation", async () => {
+      await app.tenants.open(data.tenant.name);
+      await app.tenants.inviteToApp();
+      const link = await linkFromEmail(data.tenant.email, /https?:\/\/\S+\/portal\/join\/\S+/);
+      await tenantApp.joinFromInvitation(link, data.tenant);
+      await expect(tenantApp.text(`${data.property.name} · Unit ${unit}`)).toBeVisible();
+      await tenantApp.expectBalance("0");
+      await expect(app.tenants.text("Invited", true)).toBeVisible();
+      await page.reload();
+      await expect(app.tenants.text("Using the app", true)).toBeVisible();
+    });
+
+    await test.step("5. Charges and two months of billing", async () => {
       await app.billing.addChargeRule({ ...data.security, effectiveFrom: `${data.month(-1)}-01` });
       await app.billing.generateInvoices(data.month(-1), "23,500");
       await app.billing.generateInvoices(data.month(0), "23,500");
       await app.billing.expectInvoiceCount(2);
       await app.lease.open(leaseUrl);
       await app.lease.expectBalance("47,000");
+      // The tenant sees the same bills on their phone.
+      await tenantApp.page.reload();
+      await tenantApp.expectBalance("47,000");
+      await tenantApp.openTab("Bills");
+      await expect(tenantApp.link(/INV-\d+/)).toHaveCount(2);
     });
 
-    await test.step("5. Deposit and a cash payment with receipt", async () => {
+    await test.step("6. Deposit and a cash payment with receipt", async () => {
       await app.lease.recordDepositReceived(data.unitType.deposit, "DEP-QA-001");
       const receipt = await app.lease.recordPayment({ amount: "30000", method: "Cash" });
       await app.lease.expectBalance("17,000");
       await app.payments.openReceipt(receipt);
       await expect(app.payments.text(data.tenant.name)).toBeVisible();
       await expect(app.payments.text(/Account balance now:\s*Ksh\s17,000/)).toBeVisible();
+      // In the tenant app: new balance, the receipt, and the deposit held.
+      await tenantApp.openTab("Home");
+      await tenantApp.expectBalance("17,000");
+      await expect(tenantApp.text("Ksh 22,000", true).first()).toBeVisible();
+      await tenantApp.openReceipt(receipt);
+      await expect(tenantApp.text(/30,000/).first()).toBeVisible();
     });
 
-    await test.step("6. Announcement and reminder settings", async () => {
+    await test.step("7. Announcement reaches the tenant app", async () => {
       await app.communications.open();
       await app.communications.sendAnnouncement(
         { title: "Water interruption on Saturday", body: "Supply is off from 8am to 2pm for tank cleaning." },
@@ -67,42 +97,64 @@ test.describe("Regression: full property lifecycle", () => {
       );
       await app.communications.expectDelivered("Water interruption on Saturday");
       await app.communications.setRentDueReminder(5);
+      await tenantApp.page.reload();
+      await tenantApp.expectNotification(/Water interruption on Saturday/);
     });
 
-    await test.step("7. Maintenance request from report to close", async () => {
-      const title = "Kitchen sink leaking";
-      await app.maintenance.createRequest({
-        property: data.property.name,
-        unit,
+    await test.step("8. Repair reported in the tenant app, handled by staff", async () => {
+      await tenantApp.reportRepair({
         category: "Plumbing",
         urgency: "High",
-        title,
+        title: repair,
         details: "Water pooling under the sink since last night.",
+        photo: { name: "sink.png", buffer: data.photo },
       });
-      await app.maintenance.open(title);
+      await tenantApp.expectRepairStatus("Sent to your landlord");
+
+      await app.maintenance.open(repair);
+      await expect(app.maintenance.text("from tenant").or(app.maintenance.text(data.tenant.name)).first()).toBeVisible();
       await app.maintenance.moveTo("Acknowledge", "Acknowledged");
       await app.maintenance.assignToMe(data.today);
       await app.maintenance.addCost({ kind: "Quotation", description: "Replace trap and seal", amount: "2500", supplier: "Westlands Plumbers" });
       await app.maintenance.approveQuote();
       await app.maintenance.moveTo("Start work", "In progress");
       await app.maintenance.addUpdate("Plumber visited, waiting for a part.", true);
-      await app.maintenance.addUpdate("Fixed. Please report if it leaks again.");
+      await app.maintenance.addUpdate("The plumber comes back tomorrow at 10am with the part.");
+
+      // The tenant sees the update but never the internal note, and replies.
+      await tenantApp.page.reload();
+      await tenantApp.expectRepairStatus("Being fixed");
+      await expect(tenantApp.text("The plumber comes back tomorrow at 10am with the part.")).toBeVisible();
+      await expect(tenantApp.text(/waiting for a part/)).toHaveCount(0);
+      await tenantApp.messageLandlord("Thanks, someone will be home.");
+
+      await page.reload();
+      await expect(app.maintenance.text("Thanks, someone will be home.")).toBeVisible();
       await app.maintenance.moveTo("Mark resolved", "Resolved");
       await app.maintenance.moveTo("Close", "Closed");
+      await tenantApp.page.reload();
+      await tenantApp.expectRepairStatus("Closed");
     });
 
-    await test.step("8. Move-out notice and acknowledgement", async () => {
-      await app.lease.open(leaseUrl);
-      await app.lease.recordMoveOutNotice(data.today, "Relocating to Nakuru for work.");
+    await test.step("9. Move-out notice given in the tenant app, acknowledged by staff", async () => {
+      await tenantApp.giveNotice(data.today, "Relocating to Nakuru for work.");
+      // Private until acknowledged: the unit is still simply occupied.
+      await app.properties.open(data.property.name);
+      await expect(app.properties.unitTile(unit, "Occupied")).toBeVisible();
       await app.moveOut.open(data.tenant.name);
+      await expect(app.moveOut.text("Given by the tenant from the portal", false)).toBeVisible();
+      await expect(app.moveOut.text("Relocating to Nakuru for work.")).toBeVisible();
       await app.moveOut.acknowledge("Confirmed by phone.");
       await app.properties.open(data.property.name);
       await expect(app.properties.unitTile(unit, "Notice submitted")).toBeVisible();
+      await tenantApp.expectNoticeStatus("Acknowledged");
     });
 
-    await test.step("9. Move-out inspection with a damage charge", async () => {
+    await test.step("10. Move-out inspection with a damage charge", async () => {
       await app.moveOut.open(data.tenant.name);
       await app.moveOut.scheduleInspection(data.today);
+      await tenantApp.page.reload();
+      await expect(tenantApp.text(/Be there if you can/)).toBeVisible();
       await app.moveOut.openInspection();
       await app.inspection.addItem("Balcony", "Railing");
       await app.inspection.fillChecklist("Good", [
@@ -113,7 +165,7 @@ test.describe("Regression: full property lifecycle", () => {
       await app.inspection.snap("regression-inspection");
     });
 
-    await test.step("10. Settlement and closing the tenancy", async () => {
+    await test.step("11. Settlement and closing the tenancy", async () => {
       await app.moveOut.open(data.tenant.name);
       await app.moveOut.expectSettlement({
         "Deposit held": "22,000",
@@ -127,7 +179,7 @@ test.describe("Regression: full property lifecycle", () => {
       await app.moveOut.snap("regression-settlement");
     });
 
-    await test.step("11. Lease ended and unit back on the market", async () => {
+    await test.step("12. Lease ended, unit back on the market, tenant app up to date", async () => {
       await app.lease.open(leaseUrl);
       await app.lease.expectStatus("Ended");
       await app.lease.expectBalance("0");
@@ -135,6 +187,15 @@ test.describe("Regression: full property lifecycle", () => {
       await expect(app.lease.text("Refunded", true)).toBeVisible();
       await app.properties.open(data.property.name);
       await expect(app.properties.unitTile(unit, "Available")).toBeVisible();
+
+      await tenantApp.openTab("Home");
+      await tenantApp.expectBalance("0");
+      await expect(tenantApp.text("You're all paid up. Thank you!")).toBeVisible();
+      await expect(tenantApp.text("Ended", true).first()).toBeVisible();
+      await tenantApp.expectNoticeStatus("Moved out");
+      await tenantApp.openTab("Pay");
+      await expect(tenantApp.text("No active lease")).toBeVisible();
+      await tenantApp.snap("regression-tenant-app");
     });
 
     await expect(page).toHaveURL(/\/dashboard\/properties\//);

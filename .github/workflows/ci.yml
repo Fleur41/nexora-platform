@@ -85,6 +85,8 @@ jobs:
       EMAIL_BACKEND: django.core.mail.backends.smtp.EmailBackend
       EMAIL_HOST: localhost
       EMAIL_PORT: "1025"
+      # Every browser test signs up fresh accounts; the production limit (10/min) is too low.
+      THROTTLE_AUTH: 1000/min
       DATABASE_URL: postgres://nexora:nexora_ci_password@localhost:5432/nexora
       CELERY_TASK_ALWAYS_EAGER: "true"
       # No Redis in this job: use the in-process cache for throttling.

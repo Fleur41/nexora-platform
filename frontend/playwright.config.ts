@@ -26,6 +26,10 @@ export default defineConfig({
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
     headless: !headed,
+    // A stuck click or navigation fails with a clear message instead of using up the test's
+    // whole timeout (which is long for the regression journey).
+    actionTimeout: headed ? 30_000 : 15_000,
+    navigationTimeout: 30_000,
   },
   projects: [
     {
