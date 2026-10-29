@@ -47,6 +47,7 @@ INSTALLED_APPS = [
     "apps.inspections",
     "apps.portal",
     "apps.reports",
+    "apps.listings",
 ]
 
 MIDDLEWARE = [
@@ -158,6 +159,8 @@ REST_FRAMEWORK = {
         "anon": env("THROTTLE_ANON", default="60/min"),
         "user": env("THROTTLE_USER", default="600/min"),
         "auth": env("THROTTLE_AUTH", default="10/min"),
+        # Public enquiry and viewing-request forms, per IP.
+        "enquiry": env("THROTTLE_ENQUIRY", default="10/hour"),
     },
     "TEST_REQUEST_DEFAULT_FORMAT": "json",
 }
