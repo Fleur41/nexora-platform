@@ -11,6 +11,7 @@ import {
   PaymentsPage,
   PortalPage,
   PropertiesPage,
+  ReportsPage,
   TenantsPage,
 } from "../pages";
 
@@ -27,6 +28,7 @@ export interface App {
   inspection: InspectionPage;
   communications: CommunicationsPage;
   portal: PortalPage;
+  reports: ReportsPage;
 }
 
 /** Collect uncaught browser errors (hydration, runtime exceptions) on a page. */
@@ -54,6 +56,7 @@ export const test = base.extend<{ app: App; tenantApp: PortalPage; failOnPageErr
       inspection: new InspectionPage(page),
       communications: new CommunicationsPage(page),
       portal: new PortalPage(page),
+      reports: new ReportsPage(page),
     });
   },
   /**

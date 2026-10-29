@@ -122,6 +122,8 @@ Creates **Nexora Demo Homes (sample data)**:
 - **Announcements:** a water interruption for Ruaka Gardens and a fire drill for everyone.
 - **Tenant app:** one tenant (who pays partially, so there's a balance) can sign in to `/portal`
   and sees their bills, repairs and notifications.
+- **Listings:** two vacant units on the public website (`/listings`), with a new viewing request
+  and an enquiry that has a viewing booked.
 
 While seeding, emails are switched off so back-filled invoices and receipts don't email anyone;
 in-app notifications are still recorded.
@@ -439,6 +441,37 @@ longer be edited.
    stay available.
 4. Optional: **Audit log** lists every action taken above, by the landlord and the tenant, with
    who did it and when.
+
+## Reports
+
+**Sidebar → Reports** (owners, property managers and accountants). Choose a report, a period
+(this month, last month, this year, last year or custom dates) and optionally one property:
+
+- **Financial summary**: what was billed by income category (net of credits), money received by
+  payment method, maintenance costs, deposits and what tenants owe, with a month-by-month chart.
+  A month's rent counts in that month even if it was invoiced later.
+- **Rent roll**, **Arrears** (aged: not yet due, 1–30, 31–60, 61–90, over 90 days),
+  **Occupancy** (with vacant units and days vacant), **Deposits** and **Maintenance costs**.
+
+**PDF**, **Excel** and **CSV** download any report for your accountant; every download is recorded
+in the audit log. Managers assigned to some properties only see those properties.
+
+## Public listings
+
+Vacant units can be advertised at **/listings** ("Find a home" on the public site).
+
+1. **Sidebar → Listings → New listing**: choose the property and unit, write a title and
+   description, tick the photos to show (upload them first on the unit or property page, category
+   *Photo*) → **Save listing**. It shows **Live** with a link to copy and share.
+2. Visitors search by area, rent and size, open the home and **Book a viewing** or **Ask a
+   question**. Only the town and county are shown, never the street address.
+3. You're notified of each request. **Listings → Enquiries & viewings**: call them, **book a
+   viewing** (they're emailed the time if they gave an email), keep internal notes, and **close**
+   with the outcome.
+
+A listing comes down by itself once the unit is let, and goes back up if it becomes free again
+while still published. A unit on notice can be listed too: it shows "available from" the day
+after the tenant moves out.
 
 ## Tenant app
 

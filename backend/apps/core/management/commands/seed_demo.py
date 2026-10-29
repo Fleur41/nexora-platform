@@ -18,12 +18,13 @@ from __future__ import annotations
 import random
 import string
 from dataclasses import dataclass
-from datetime import date, timedelta
+from datetime import date, datetime, time, timedelta
 from decimal import Decimal
 
 from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
+from django.utils import timezone
 
 from apps.accounts.models import User
 from apps.audit.services import record_event
@@ -36,6 +37,7 @@ from apps.inspections.models import Inspection
 from apps.leases import moveout
 from apps.leases import services as leases
 from apps.leases.models import Lease, MoveOutNotice
+from apps.listings.models import Listing
 from apps.maintenance import services as maintenance
 from apps.maintenance.models import MaintenanceCost, MaintenanceRequest
 from apps.notifications.models import Announcement
@@ -618,6 +620,7 @@ class Command(BaseCommand):
             "inspections": Inspection.objects.filter(organization=org).count(),
             "move-out notices": MoveOutNotice.objects.filter(organization=org).count(),
             "announcements": Announcement.objects.filter(organization=org).count(),
+            "listings": Listing.objects.filter(organization=org, is_published=True).count(),
         }
         self.stdout.write(
             self.style.SUCCESS("Created: " + ", ".join(f"{v} {k}" for k, v in counts.items()))
@@ -920,7 +923,65 @@ class Command(BaseCommand):
                 ),
                 properties=Property.objects.filter(organization=org),
             )
+        # Listings: two vacant units on the public website, with enquiries from it.
+        self._listings(request, org, today)
         return tenant
+
+    def _listings(self, request, org, today):
+        from apps.listings import services as listings
+        from apps.listings.models import Enquiry
+
+        vacant = {u.number: u for u in Unit.objects.filter(organization=org, status="available")}
+        published = []
+        for number, title, description in (
+            (
+                "B4",
+                "Spacious 2-bedroom with balcony in Kilimani",
+                "Two bedrooms (master en-suite), open-plan kitchen and a balcony with garden "
+                "views. Lift, gym, backup generator and parking.",
+            ),
+            (
+                "S4",
+                "Modern studio in Ruaka, borehole water",
+                "Bright studio with a kitchenette and shower. Gated compound with borehole "
+                "water and parking, a short walk to Ruaka town.",
+            ),
+        ):
+            if number in vacant:
+                published.append(
+                    listings.save_listing(
+                        request=request,
+                        unit=vacant[number],
+                        title=title,
+                        description=description,
+                        is_published=True,
+                    )
+                )
+        if not published:
+            return
+        listings.submit_enquiry(
+            listing=published[0],
+            kind=Enquiry.Kind.VIEWING,
+            name="Brian Otieno (sample)",
+            phone="+254711000222",
+            email="brian.otieno@example.com",
+            message="Is parking included in the rent?",
+            preferred_date=today + timedelta(days=2),
+            preferred_time=Enquiry.TimeOfDay.EVENING,
+        )
+        booked = listings.submit_enquiry(
+            listing=published[-1],
+            kind=Enquiry.Kind.ENQUIRY,
+            name="Faith Wanjiru (sample)",
+            phone="+254722000333",
+            message="Can I move in at the start of next month?",
+        )
+        listings.update_enquiry(
+            request=request,
+            enquiry=booked,
+            viewing_at=timezone.make_aware(datetime.combine(today + timedelta(days=1), time(10))),
+            staff_notes="Called her; she'll come with her brother.",
+        )
 
     def _pay(self, request, org, invoice, profile, paybill, bank, today, month):
         share, (low, high) = PROFILES[profile]

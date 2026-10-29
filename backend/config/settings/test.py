@@ -8,7 +8,12 @@ CELERY_TASK_ALWAYS_EAGER = True
 CACHES = {"default": {"BACKEND": "django.core.cache.backends.locmem.LocMemCache"}}
 REST_FRAMEWORK = {
     **REST_FRAMEWORK,
-    "DEFAULT_THROTTLE_RATES": {"anon": "1000/min", "user": "1000/min", "auth": "1000/min"},
+    "DEFAULT_THROTTLE_RATES": {
+        "anon": "1000/min",
+        "user": "1000/min",
+        "auth": "1000/min",
+        "enquiry": "1000/min",
+    },
 }
 
 import tempfile  # noqa: E402

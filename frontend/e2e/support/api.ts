@@ -21,6 +21,19 @@ export class Api {
     return (await res.json()) as T;
   }
 
+  /** Upload a file (multipart), e.g. a unit photo to /documents/. */
+  async upload<T>(path: string, fields: Record<string, string>, file: { name: string; mimeType: string; buffer: Buffer }): Promise<T> {
+    const cookies = await this.page.context().cookies();
+    const csrf = cookies.find((c) => c.name === "nexora_csrftoken")?.value ?? "";
+    const res = await this.page.request.fetch(`/api/v1${path}`, {
+      method: "POST",
+      multipart: { ...fields, file },
+      headers: { "X-CSRFToken": csrf, ...(this.orgId ? { "X-Organization-ID": this.orgId } : {}) },
+    });
+    expect(res.ok(), `POST ${path}: ${await res.text()}`).toBeTruthy();
+    return (await res.json()) as T;
+  }
+
   get = <T>(path: string) => this.call<T>("GET", path);
   post = <T>(path: string, body?: unknown) => this.call<T>("POST", path, body);
   patch = <T>(path: string, body?: unknown) => this.call<T>("PATCH", path, body);

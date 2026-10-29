@@ -14,6 +14,9 @@ export default function PublicLayout({ children }: LayoutProps<"/">) {
           </Link>
           <nav className="flex items-center gap-2">
             <Button asChild variant="ghost" size="sm">
+              <Link href="/listings">Find a home</Link>
+            </Button>
+            <Button asChild variant="ghost" size="sm">
               <Link href="/login">Sign in</Link>
             </Button>
             <Button asChild size="sm">
