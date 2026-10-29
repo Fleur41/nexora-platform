@@ -275,6 +275,8 @@ export interface Lease {
   billing_frequency: BillingFrequency;
   rent_due_day: number;
   deposit_amount: Money;
+  /** Bill the first period in full instead of prorating it from the start date. */
+  first_month_in_full: boolean;
   current_rent: Money | null;
   rent_terms: RentTerm[];
   notes: string;

@@ -13,6 +13,7 @@ from .models import Lease, LeaseRentTerm
 from .serializers import (
     CancelLeaseSerializer,
     EndLeaseSerializer,
+    FirstMonthSerializer,
     LeaseSerializer,
     RentChangeSerializer,
     RentTermSerializer,
@@ -44,6 +45,7 @@ class LeaseViewSet(
         "end": "leases.manage",
         "rent_terms": "leases.manage",
         "remove_rent_term": "leases.manage",
+        "first_month": "leases.manage",
     }
     filterset_class = LeaseFilter
     search_fields = ["reference", "tenant__full_name", "tenant__phone", "unit__number"]
@@ -87,6 +89,18 @@ class LeaseViewSet(
         serializer = EndLeaseSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         lease = services.end_lease(request=request, lease=lease, **serializer.validated_data)
+        return self._respond(lease)
+
+    @extend_schema(request=FirstMonthSerializer, responses=LeaseSerializer)
+    @action(detail=True, methods=["post"], url_path="first-month")
+    def first_month(self, request, pk=None):
+        serializer = FirstMonthSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        lease = services.set_first_month_in_full(
+            request=request,
+            lease=self.get_object(),
+            enabled=serializer.validated_data["first_month_in_full"],
+        )
         return self._respond(lease)
 
     @extend_schema(request=RentChangeSerializer, responses={201: RentTermSerializer})

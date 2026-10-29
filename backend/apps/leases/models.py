@@ -55,6 +55,13 @@ class Lease(OrganizationScopedModel):
     )
     # Agreed deposit; zero means no deposit. Deposit receipts/refunds are tracked in billing.
     deposit_amount = MoneyField(default=0)
+    first_month_in_full = models.BooleanField(
+        default=False,
+        help_text=(
+            "Bill the first billing period in full even when the tenancy starts part-way "
+            "through it. Off: the first period is prorated by day."
+        ),
+    )
     notes = models.TextField(blank=True)
     end_reason = models.CharField(max_length=255, blank=True)
     activated_at = models.DateTimeField(null=True, blank=True)

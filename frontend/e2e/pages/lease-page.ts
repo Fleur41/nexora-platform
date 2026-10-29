@@ -23,7 +23,7 @@ export class LeasePage extends BasePage {
       await this.field("Unit", true).selectOption({ index: 1 });
       await expect(this.field(/Monthly rent/)).toHaveValue(Number(lease.rent).toFixed(2));
       await expect(this.field(/Deposit/)).toHaveValue(Number(lease.deposit).toFixed(2));
-      await this.field("Start date").fill(lease.startDate);
+      await this.field("Start date", true).fill(lease.startDate);
       await this.button("Create lease").click();
       await expect(this.heading(/^LSE-\d+$/)).toBeVisible();
       await expect(this.text("Active", true)).toBeVisible();

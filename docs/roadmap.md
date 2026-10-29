@@ -148,7 +148,8 @@ support access, security review, accessibility audit, deployment and backup runb
 - Tenants are notified of invoices and receipts (in the app and by email) and can print or save
   them as PDF from the browser; there's no generated PDF attachment yet (Phase 6).
 - Shared costs split evenly per occupied unit; weighting by unit size or meter is not supported yet.
-- Proration is by calendar day for all charges; there is no per-charge "no proration" option yet.
+- Proration is by calendar day. A lease can charge its first month in full instead; there is no
+  per-charge "no proration" option for other months (e.g. a mid-month rent change).
 - Move-out settlement doesn't credit unused days on a month that was already billed; staff credit
   that invoice by hand if the agreement allows it (the settlement preview says so).
 - Property photos are private for now. Public listings (Phase 6) will add an explicit

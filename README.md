@@ -160,6 +160,10 @@ npm run test:regression                    # QA: full sign-up → move-out journ
 
 See `frontend/e2e/README.md` for the page objects, the regression stages and speed options.
 
+**Illustrated user manual (PDF):** [`docs/manual/Nexora-User-Manual.pdf`](docs/manual/Nexora-User-Manual.pdf),
+the walkthrough below with a screenshot of every step. Regenerate it after UI changes with
+`npm run docs:manual` (from `frontend/`, with the app, Django and Mailpit running as for the tests).
+
 CI (`.github/workflows/ci.yml`) runs the same checks plus `manage.py check --deploy`.
 
 ### Manual walkthrough of Phase 1
@@ -286,6 +290,12 @@ move-out happens **today**.
 
 **Check:** the lease **LSE-0001** shows **Active**. On the property page, R1 is now
 **Occupied**.
+
+> **Moving in mid-month?** Normally the first bill covers only the days from the start date (e.g.
+> 13,000 rent from the 29th of a 31-day month bills 3 days, 1,258.06). If the agreement says the
+> first month is paid in full, tick **Charge the first month in full** on the new-lease form, or
+> use **First month → Change** on the lease page. If that month is already billed, void its
+> invoice first, switch the option, then generate the month again.
 
 ### 4. Tenant joins the tenant app
 
