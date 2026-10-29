@@ -45,7 +45,7 @@ export function DashboardOverview() {
   const canAudit = can("audit.view");
   const members = useMembers({}, canTeam);
   const invitations = useInvitations({ status: "pending" }, canTeam);
-  const audit = useAuditLogs({ page_size: 6 }, canAudit);
+  const audit = useAuditLogs({ page_size: 6, exclude_action: "support.request" }, canAudit);
   const canProperties = can("properties.view");
   const properties = useProperties({ page_size: 1, is_active: true }, canProperties);
   const units = useUnitSummary(canProperties);
@@ -58,7 +58,7 @@ export function DashboardOverview() {
     <>
       <PageHeader
         title={org.name}
-        description={`You are signed in as ${ROLE_LABELS[current.role]}. Currency ${org.currency} · ${org.timezone.replace("_", " ")}`}
+        description={`${current.support_until ? "You are viewing as Nexora support (read-only)" : `You are signed in as ${ROLE_LABELS[current.role]}`}. Currency ${org.currency} · ${org.timezone.replace("_", " ")}`}
       />
 
       {canProperties && (

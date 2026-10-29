@@ -11,3 +11,4 @@ export { PortalPage } from "./portal-page";
 export { ReportsPage } from "./reports-page";
 export { PropertiesPage, type PropertyInput, type UnitTypeInput } from "./properties-page";
 export { TenantsPage, type TenantInput } from "./tenants-page";
+export { PlatformPage } from "./platform-page";

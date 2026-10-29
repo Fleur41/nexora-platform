@@ -108,6 +108,8 @@ jobs:
         run: |
           pip install -r requirements-dev.txt
           python manage.py migrate --noinput
+          # The platform console test signs in as Nexora staff; only the CLI can grant that.
+          python manage.py platform_admin e2e-platform@example.com --create --password Nexora-e2e-pass-2026
           python manage.py runserver 127.0.0.1:8000 > /tmp/django.log 2>&1 &
       - name: Build and start frontend
         working-directory: frontend

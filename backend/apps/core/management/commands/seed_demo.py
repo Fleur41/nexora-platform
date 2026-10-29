@@ -88,6 +88,8 @@ TENANTS = [
 ]
 # The sample tenant who uses the tenant app (signs in with the sample password).
 PORTAL_TENANT_EMAIL = "demo-tenant@nexora.test"
+# Nexora's own staff account: the platform console, with no organization of its own.
+PLATFORM_ADMIN_EMAIL = "demo-platform@nexora.test"
 # How each tenant tends to pay: share of the invoice paid, and days after the due date.
 PROFILES = {
     "prompt": (Decimal("1"), (0, 4)),
@@ -142,6 +144,7 @@ class Command(BaseCommand):
             if User.objects.filter(email=PORTAL_TENANT_EMAIL).exists():
                 self._user("tenant", "")
             self._attach_owner(existing, options.get("owner_email"))
+            self._platform_admin()
             self.stdout.write(
                 self.style.WARNING(f"{ORG_NAME} already exists; nothing new created.")
             )
@@ -150,6 +153,7 @@ class Command(BaseCommand):
         self.rng = random.Random(2026)  # noqa: S311 - deterministic sample data, not security
         with transaction.atomic():
             self._seed(options.get("owner_email"))
+            self._platform_admin()
         self._print_logins()
 
     # --- helpers --------------------------------------------------------------------
@@ -170,6 +174,13 @@ class Command(BaseCommand):
             user.save(update_fields=["password"])
         return user
 
+    def _platform_admin(self) -> User:
+        user = self._user("platform", "Nexora Support")
+        if not user.is_platform_admin:
+            user.is_platform_admin = True
+            user.save(update_fields=["is_platform_admin"])
+        return user
+
     def _attach_owner(self, organization, email):
         if not email:
             return
@@ -188,6 +199,7 @@ class Command(BaseCommand):
         for key, name, role in STAFF:
             self.stdout.write(f"  {Role(role).label:<26} demo-{key}@nexora.test  ({name})")
         self.stdout.write(f"  {'Tenant (tenant app /portal)':<26} {PORTAL_TENANT_EMAIL}")
+        self.stdout.write(f"  {'Nexora staff (/platform)':<26} {PLATFORM_ADMIN_EMAIL}")
 
     # --- the seed ------------------------------------------------------------------------
 

@@ -9,6 +9,8 @@ export type AuditLogParams = {
   search?: string;
   page?: number;
   page_size?: number;
+  /** Comma-separated actions to leave out. */
+  exclude_action?: string;
 };
 
 export function useAuditLogs(params: AuditLogParams, enabled = true) {

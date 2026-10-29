@@ -1,9 +1,11 @@
 from datetime import date, timedelta
 
 import pytest
+from django.core.management import call_command
 from django.utils import timezone
 from rest_framework.test import APIClient
 
+from apps.accounts.models import User
 from apps.audit.models import AuditLog
 from apps.notifications.models import Notification
 from apps.organizations.models import Organization
@@ -121,7 +123,7 @@ def test_plans_are_edited_by_staff(staff):
 
 def test_support_access_is_read_only_time_limited_audited_and_announced(staff, make_member, org_a):
     user, client = staff
-    owner, _ = make_member(org_a)
+    owner, owner_client = make_member(org_a)
     PropertyFactory(organization=org_a, name="Riverside")
     support = org_client(user, org_a)
     # No grant: no access.
@@ -142,6 +144,9 @@ def test_support_access_is_read_only_time_limited_audited_and_announced(staff, m
     assert blocked.status_code == 403 and blocked.data["error"]["code"] == "support_read_only"
     assert AuditLog.objects.filter(organization=org_a, action="support.request").exists()
     assert AuditLog.objects.filter(organization=org_a, action="support.started").exists()
+    # The owner's full log has every page view; the dashboard's recent changes can leave them out.
+    logs = owner_client.get("/api/v1/audit-logs/", {"exclude_action": "support.request"}).data
+    assert "support.request" not in {e["action"] for e in logs["results"]}
     mine = client.get("/api/v1/organizations/")
     entry = next(o for o in mine.data if o["organization"]["id"] == str(org_a.pk))
     assert entry["support_until"] is not None and "properties.manage" not in entry["capabilities"]
@@ -162,3 +167,13 @@ def test_support_needs_a_reason_and_a_sensible_duration(staff, org_a):
     assert client.post(url, {"reason": " ", "minutes": 30}, format="json").status_code in (400, 409)
     Organization.objects.filter(pk=org_a.pk).update(status="suspended")
     assert client.post(url, {"reason": "y", "minutes": 30}, format="json").status_code == 404
+
+
+def test_platform_admin_command_grants_and_revokes():
+    call_command("platform_admin", "ops@nexora.test", create=True, password="Ops-pass-2026!x")
+    user = User.objects.get(email="ops@nexora.test")
+    assert user.is_platform_admin and user.check_password("Ops-pass-2026!x")
+    call_command("platform_admin", "ops@nexora.test", revoke=True)
+    user.refresh_from_db()
+    assert not user.is_platform_admin
+    assert AuditLog.objects.filter(action="platform.admin_revoked").exists()
