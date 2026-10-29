@@ -50,7 +50,7 @@ export function RegisterForm() {
       <FormField id="full_name" label="Full name" error={errors.full_name?.message}>
         <Input autoComplete="name" {...form.register("full_name")} />
       </FormField>
-      <FormField id="email" label="Work email" error={errors.email?.message}>
+      <FormField id="email" label={next.startsWith("/portal") ? "Email" : "Work email"} error={errors.email?.message}>
         <Input type="email" autoComplete="email" {...form.register("email")} />
       </FormField>
       <FormField id="phone" label="Phone (optional)" error={errors.phone?.message}>

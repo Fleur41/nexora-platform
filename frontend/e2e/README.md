@@ -4,11 +4,16 @@ The tests drive the real stack: start Django on :8000 and Next.js on :3000 first
 main README). Each run registers a new account and organization, so they never clash with
 existing data.
 
+The tenant app test reads the invitation email from **Mailpit**: run `docker compose up -d mailpit`
+and start Django with `EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend EMAIL_PORT=1025`.
+Set `MAILPIT_URL` if Mailpit isn't on http://localhost:8025.
+
 ```
 e2e/
   pages/        page objects: one class per screen, holding its locators and actions
-  support/      fixtures.ts (gives tests an `app` with every page object) and data.ts
-  smoke/        fast, independent feature checks; run in CI
+  support/      fixtures.ts (gives tests an `app` with every page object), data.ts,
+                api.ts (fast setup through the API) and mailbox.ts (reads emails from Mailpit)
+  smoke/        fast, independent feature checks, incl. the tenant app at phone size; run in CI
   regression/   one long journey from sign-up to move-out settlement, for QA
 ```
 

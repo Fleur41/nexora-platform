@@ -28,7 +28,7 @@ export function NotificationBell({ timeZone, showOrganization }: { timeZone: str
       <DropdownMenuTrigger className="relative flex size-9 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
         <Bell className="size-5" />
         {unread > 0 && (
-          <span className="absolute -right-0.5 -top-0.5 flex min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-semibold leading-4 text-white">
+          <span aria-hidden className="absolute -right-0.5 -top-0.5 flex min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-semibold leading-4 text-white">
             {unread > 99 ? "99+" : unread}
           </span>
         )}

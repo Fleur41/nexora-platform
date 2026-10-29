@@ -48,6 +48,19 @@ export function usePortalReceipt(tenantId: string, id: string) {
   return useQuery({ queryKey: ["portal", tenantId, "payments", id], queryFn: () => api.get<PortalReceipt>(`${base(tenantId)}/payments/${id}/`, undefined, opts) });
 }
 
+export interface PortalStatement {
+  balance: string;
+  entries: { date: string; type: string; description: string; reference: string; amount: string; balance: string }[];
+}
+
+export function usePortalStatement(tenantId: string, leaseId: string, enabled = true) {
+  return useQuery({
+    queryKey: ["portal", tenantId, "statement", leaseId],
+    queryFn: () => api.get<PortalStatement>(`${base(tenantId)}/leases/${leaseId}/statement/`, undefined, opts),
+    enabled: enabled && Boolean(leaseId),
+  });
+}
+
 export function usePortalMaintenanceList(tenantId: string) {
   return useQuery({ queryKey: ["portal", tenantId, "maintenance"], queryFn: () => api.get<PortalMaintenance[]>(`${base(tenantId)}/maintenance/`, undefined, opts) });
 }
@@ -78,7 +91,7 @@ export function useMaintenanceMessage(tenantId: string, id: string) {
         const form = new FormData();
         form.append("action", "photo");
         form.append("file", input.file);
-        return api.upload<PortalMaintenance>(`${base(tenantId)}/maintenance/${id}/`, form);
+        return api.upload<PortalMaintenance>(`${base(tenantId)}/maintenance/${id}/`, form, opts);
       }
       return api.post<PortalMaintenance>(`${base(tenantId)}/maintenance/${id}/`, input, opts);
     },
@@ -86,10 +99,26 @@ export function useMaintenanceMessage(tenantId: string, id: string) {
   });
 }
 
+/** Attach photos to a request, one upload at a time (each is checked server-side). */
+export function useAddRepairPhotos(tenantId: string) {
+  const invalidate = useInvalidatePortal(tenantId);
+  return useMutation({
+    mutationFn: async ({ id, files }: { id: string; files: File[] }) => {
+      for (const file of files) {
+        const form = new FormData();
+        form.append("action", "photo");
+        form.append("file", file);
+        await api.upload<PortalMaintenance>(`${base(tenantId)}/maintenance/${id}/`, form, opts);
+      }
+    },
+    onSettled: invalidate,
+  });
+}
+
 export function usePortalPhoto(tenantId: string, requestId: string, photoId: string) {
   return useQuery({
     queryKey: ["portal", tenantId, "photo", photoId],
-    queryFn: () => apiDownload(`${base(tenantId)}/maintenance/${requestId}/photos/${photoId}/`),
+    queryFn: () => apiDownload(`${base(tenantId)}/maintenance/${requestId}/photos/${photoId}/`, opts),
     staleTime: 5 * 60_000,
   });
 }

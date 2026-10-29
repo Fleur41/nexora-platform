@@ -9,6 +9,7 @@ import {
   MaintenancePage,
   MoveOutPage,
   PaymentsPage,
+  PortalPage,
   PropertiesPage,
   TenantsPage,
 } from "../pages";
@@ -25,6 +26,7 @@ export interface App {
   moveOut: MoveOutPage;
   inspection: InspectionPage;
   communications: CommunicationsPage;
+  portal: PortalPage;
 }
 
 export const test = base.extend<{ app: App; failOnPageErrors: void }>({
@@ -40,6 +42,7 @@ export const test = base.extend<{ app: App; failOnPageErrors: void }>({
       moveOut: new MoveOutPage(page),
       inspection: new InspectionPage(page),
       communications: new CommunicationsPage(page),
+      portal: new PortalPage(page),
     });
   },
   // Any uncaught browser error (hydration, runtime exception) fails the test.

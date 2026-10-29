@@ -76,8 +76,15 @@ jobs:
         options: >-
           --health-cmd "pg_isready -U nexora" --health-interval 5s
           --health-timeout 5s --health-retries 10
+      # Catches outgoing email; the tenant portal test reads its invitation link from here.
+      mailpit:
+        image: axllent/mailpit:v1.21
+        ports: ["8025:8025", "1025:1025"]
     env:
       DJANGO_SECRET_KEY: ci-not-secret
+      EMAIL_BACKEND: django.core.mail.backends.smtp.EmailBackend
+      EMAIL_HOST: localhost
+      EMAIL_PORT: "1025"
       DATABASE_URL: postgres://nexora:nexora_ci_password@localhost:5432/nexora
       CELERY_TASK_ALWAYS_EAGER: "true"
       # No Redis in this job: use the in-process cache for throttling.

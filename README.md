@@ -78,7 +78,16 @@ npm install
 npm run dev                                # http://localhost:3000
 ```
 
-In option B emails are printed to the Django console, and Celery tasks run inline
+To see emails in a browser inbox instead (and to run the browser tests, which read the tenant
+invitation email), start Mailpit and point Django at it:
+
+```bash
+docker compose up -d mailpit                               # inbox at http://localhost:8025
+EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend EMAIL_PORT=1025 \
+  .venv/bin/python manage.py runserver
+```
+
+Otherwise in option B emails are printed to the Django console, and Celery tasks run inline
 (`CELERY_TASK_ALWAYS_EAGER=true`) so no worker is needed. To run a real worker instead, set it
 to `false` and run `.venv/bin/celery -A config worker -l info`.
 
@@ -126,7 +135,7 @@ cd backend
 cd frontend
 npm run lint && npm run typecheck && npm test && npm run build
 
-# Browser end-to-end tests: start Django (:8000) and Next.js (:3000) first
+# Browser end-to-end tests: start Django (:8000, sending email to Mailpit as above) and Next.js (:3000) first
 npx playwright install chromium            # once
 npm run test:e2e                           # smoke tests, headless (CI)
 npm run test:regression                    # QA: full sign-up → move-out journey, visible and slowed down
@@ -361,6 +370,40 @@ longer be edited.
 2. Open **Properties → Riverside Apartments**.
    **Check:** unit R1 is **Available** and ready to let again.
 3. Optional: **Audit log** lists every action taken above, with who did it and when.
+
+## Tenant app
+
+Tenants get their own app at `/portal`. It works in any phone browser and installs to the home
+screen like a native app ("My home"), with no app store involved.
+
+**What tenants can do:** see what they owe and what's overdue, open each bill, download
+receipts, read their statement, pay with M-Pesa (a payment prompt on their phone when the
+landlord's M-Pesa integration is verified, otherwise the paybill/till/bank details with the right
+account number), report repairs with photos and follow the landlord's updates, give notice to move
+out and follow the inspection and settlement. Notifications appear under the bell and by email.
+
+**Giving a tenant access (staff):**
+1. Make sure the tenant has an email address, then open **Tenants → the tenant**.
+2. In **Tenant app**, check the email and choose **Send invitation**. The badge shows **Invited**.
+3. The tenant opens the link in the email, creates an account with that email (or signs in) and
+   chooses **Open my home**. The badge changes to **Using the app**.
+
+**Resend invitation** cancels the earlier link (links last 14 days). **Remove access** stops the
+tenant seeing this account in the app; their records are unchanged. Staff internal notes on
+repairs are never shown to tenants, and a move-out notice stays private until it's acknowledged.
+
+**Installing on a phone (tenants):**
+- **Android (Chrome):** open the app; tap **Install app** on the banner (or ⋮ → **Install app** /
+  **Add to Home screen**).
+- **iPhone (Safari):** open the app; tap **Share** → **Add to Home Screen**.
+
+The app opens full screen from the "My home" icon. It needs a connection: offline it shows an
+offline page, and nothing from the account is stored on the phone. Installing needs HTTPS in
+production (localhost is fine for testing).
+
+**Trying it locally:** start Mailpit as above, invite a tenant using an email address of your
+choice, then open the invitation in Mailpit (http://localhost:8025) in a private window. To see
+the phone layout on a computer, use the browser's device toolbar (Chrome: ⌥⌘I → toggle device).
 
 ## Security model (summary)
 

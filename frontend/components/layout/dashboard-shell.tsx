@@ -10,6 +10,7 @@ import { OrganizationProvider, useOrganization } from "@/components/providers/or
 import { Button } from "@/components/ui/button";
 import { ErrorState } from "@/components/ui/states";
 import { useMyOrganizations } from "@/features/organizations/api";
+import { useTenancies } from "@/features/portal/api";
 import { errorMessage } from "@/lib/api/errors";
 import { getActiveOrganizationId, setActiveOrganizationId } from "@/lib/api/organization-store";
 import { DASHBOARD_NAV } from "@/lib/navigation";
@@ -39,9 +40,13 @@ function OrganizationGate({ user, children }: { user: User; children: React.Reac
     return (valid ?? orgs.data[0]!).organization.id;
   }, [orgs.data, chosenId]);
 
+  // Tenants have no organization of their own: send them to their portal, not onboarding.
+  const noOrganizations = orgs.data?.length === 0;
+  const tenancies = useTenancies(noOrganizations);
   React.useEffect(() => {
-    if (orgs.data?.length === 0) router.replace("/onboarding");
-  }, [orgs.data, router]);
+    if (!noOrganizations || !tenancies.data) return;
+    router.replace(tenancies.data.length > 0 ? "/portal" : "/onboarding");
+  }, [noOrganizations, tenancies.data, router]);
 
 
   const handleSwitch = React.useCallback(
