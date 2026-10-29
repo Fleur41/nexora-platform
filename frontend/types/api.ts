@@ -1025,3 +1025,44 @@ export interface PortalMoveOut {
   acknowledged_at: string | null;
   completed_at: string | null;
 }
+
+// --- Reports ----------------------------------------------------------------------------
+
+export type ReportKey = "financial-summary" | "rent-roll" | "arrears" | "occupancy" | "deposits" | "maintenance-costs";
+export type ReportValueKind = "text" | "date" | "money" | "number" | "percent";
+
+export interface ReportListItem {
+  key: ReportKey;
+  title: string;
+  description: string;
+  available: boolean;
+}
+
+export interface ReportColumn {
+  key: string;
+  label: string;
+  kind: ReportValueKind;
+}
+
+export type ReportCell = string | number | null;
+
+export interface ReportSection {
+  title: string;
+  note: string;
+  columns: ReportColumn[];
+  rows: Record<string, ReportCell>[];
+  totals: Record<string, ReportCell> | null;
+}
+
+export interface Report {
+  key: ReportKey;
+  title: string;
+  subtitle: string;
+  organization: string;
+  currency: string;
+  period: { start: string; end: string; label: string };
+  property: string | null;
+  summary: { label: string; value: string | null; kind: ReportValueKind }[];
+  sections: ReportSection[];
+  chart?: { label: string; month: string; billed: Money; collected: Money }[];
+}

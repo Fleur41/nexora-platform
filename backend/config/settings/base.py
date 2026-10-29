@@ -46,6 +46,7 @@ INSTALLED_APPS = [
     "apps.maintenance",
     "apps.inspections",
     "apps.portal",
+    "apps.reports",
 ]
 
 MIDDLEWARE = [

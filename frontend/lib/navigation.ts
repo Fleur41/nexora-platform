@@ -6,6 +6,7 @@ import {
   DoorOpen,
   FileText,
   Banknote,
+  BarChart3,
   CreditCard,
   Gauge,
   Home,
@@ -28,8 +29,7 @@ export interface NavItem {
   capability?: string;
 }
 
-// Only modules that are actually implemented appear here. Maintenance, reports and other
-// modules are added as their phases ship.
+// Only modules that are actually implemented appear here; others are added as their phases ship.
 export const DASHBOARD_NAV: NavItem[] = [
   { href: "/dashboard", label: "Overview", icon: LayoutDashboard },
   { href: "/dashboard/properties", label: "Properties", icon: Home, capability: "properties.view" },
@@ -42,6 +42,7 @@ export const DASHBOARD_NAV: NavItem[] = [
   { href: "/dashboard/communications", label: "Communications", icon: Megaphone, capability: "announcements.send" },
   { href: "/dashboard/billing", label: "Billing", icon: Receipt, capability: "billing.view" },
   { href: "/dashboard/payments", label: "Payments", icon: Banknote, capability: "payments.view" },
+  { href: "/dashboard/reports", label: "Reports", icon: BarChart3, capability: "reports.view" },
   { href: "/dashboard/utilities", label: "Utilities", icon: Gauge, capability: "meters.view" },
   { href: "/dashboard/charges", label: "Charges", icon: Tags, capability: "billing.view" },
   {

@@ -8,5 +8,6 @@ export { MaintenancePage, type MaintenanceInput } from "./maintenance-page";
 export { MoveOutPage } from "./move-out-page";
 export { PaymentsPage } from "./payments-page";
 export { PortalPage } from "./portal-page";
+export { ReportsPage } from "./reports-page";
 export { PropertiesPage, type PropertyInput, type UnitTypeInput } from "./properties-page";
 export { TenantsPage, type TenantInput } from "./tenants-page";
