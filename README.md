@@ -196,6 +196,172 @@ CI (`.github/workflows/ci.yml`) runs the same checks plus `manage.py check --dep
 5. M-Pesa automation (paybill callbacks and STK prompts) needs Daraja credentials and a public URL:
    follow [docs/mpesa.md](docs/mpesa.md).
 
+## Client walkthrough: a tenancy from start to finish
+
+This walkthrough takes one tenant through the whole life of a tenancy: sign-up, letting a
+unit, billing, payments, a repair, moving out and the final settlement. Follow it in order;
+each step builds on the one before. It takes about 20 minutes.
+
+Use a fresh account so the numbers below match. Where a step says **Check**, confirm you see
+that result before moving on. The same journey runs automatically with
+`npm run test:regression` (see `frontend/e2e/README.md`).
+
+**Dates used:** the lease starts on the **1st of last month**, so two months are billed. The
+move-out happens **today**.
+
+**Money used throughout:**
+
+| | Amount (KES) |
+| --- | --- |
+| Monthly rent + security charge | 22,000 + 1,500 = 23,500 |
+| Billed for two months | 47,000 |
+| Deposit received | 22,000 |
+| Cash payment | 30,000 → balance 17,000 |
+| Damage found at move-out | 3,000 |
+| Deposit used to clear the balance | 17,000 |
+| Refund to the tenant | 2,000 |
+
+### 1. Sign up
+
+1. Open http://localhost:3000 and choose **Get started**.
+2. Enter your **Full name**, **Work email** and a **Password**, then **Create account**.
+3. Enter an **Organization name** (e.g. *Riverside Lettings*) and **Create organization**.
+
+**Check:** you land on the dashboard with your organization's name at the top.
+
+### 2. Property and units
+
+1. In the sidebar, open **Properties → Add property**.
+2. **Name:** Riverside Apartments · **Town / area:** Westlands · **County:** Nairobi →
+   **Create property**.
+3. Open the **Unit types** tab → **Add unit type**. **Category:** One bedroom ·
+   **Default monthly rent:** 22000 · **Default deposit:** 22000 → **Save**.
+4. Open the **Units** tab → **Add several**. **Prefix:** R · **How many:** 4 → **Create units**.
+
+**Check:** units R1 to R4 appear in the grid, all **Available**.
+
+### 3. Tenant and lease
+
+1. **Tenants → Register tenant**. **Full name:** Wanjiku Kamau · **Phone:** 0722 456 789 ·
+   **Email:** an address you can check · **ID number:** any → **Register tenant**.
+2. On the tenant's page choose **New lease**.
+3. **Property:** Riverside Apartments · **Unit:** R1. Rent and deposit fill in from the unit
+   type (22,000 each). Set **Start date** to the 1st of last month → **Create lease**.
+
+**Check:** the lease **LSE-0001** shows **Active**. On the property page, R1 is now
+**Occupied**.
+
+### 4. Charges and two months of billing
+
+1. **Charges → Add rule**. **Charge:** Security · **Amount:** 1500 · **Effective from:** the
+   1st of last month → **Save rule**.
+2. **Billing → Generate invoices**. **Month:** last month → **Preview**.
+   **Check:** *1 invoice totalling Ksh 23,500* (rent 22,000 + security 1,500).
+3. **Post invoices**.
+4. Repeat steps 2–3 for **this month**.
+
+**Check:** the billing list shows two invoices. On the lease page (**Leases → LSE-0001**) the
+**Balance** is **Ksh 47,000**.
+
+### 5. Deposit, payment and receipt
+
+1. On the lease page, in the deposit card, choose **Record received**. **Amount:** 22000 ·
+   **Reference:** e.g. DEP-001 → **Save**.
+   **Check:** **Held now** shows Ksh 22,000. The deposit is not added to what the tenant owes.
+2. Choose **Record payment**. **Amount:** 30000 · **Paid via:** Cash → **Record payment**.
+   **Check:** a message confirms *Receipt RCT-00001 issued*, and the **Balance** drops to
+   **Ksh 17,000**.
+3. **Payments → RCT-00001 → Receipt**.
+
+**Check:** a printable receipt for Wanjiku Kamau showing *Account balance now: Ksh 17,000*.
+
+### 6. Announcement
+
+1. In the sidebar, open **Communications** (the **Announcements** tab).
+2. **Send to:** All properties · **Title:** Water interruption on Saturday · **Message:**
+   Supply is off from 8am to 2pm for tank cleaning. Leave **Email** ticked → **Send** →
+   **Send now**.
+   **Check:** *Sent to 1 tenant*, and the announcement is listed on the right.
+3. Open the **Delivery log** tab.
+   **Check:** an email to the tenant's address for the announcement.
+4. Open **Reminders & channels**, set **Rent due reminder** to 5 days → **Save settings**.
+
+### 7. Maintenance, from report to close
+
+1. **Maintenance → New request**. **Property:** Riverside Apartments · **Unit:** R1 ·
+   **Category:** Plumbing · **Urgency:** High · **What's wrong?** Kitchen sink leaking ·
+   **Details:** Water pooling under the sink → **Create request**.
+2. Open the request and choose **Acknowledge**.
+3. In **Assignment**, choose who will handle it (or leave it to yourself), set a **Visit date**
+   → **Save assignment**.
+4. In **Quotes & costs**: type **Quotation**, **Amount** 2500, **Description** *Replace trap
+   and seal*, **Supplier** *Westlands Plumbers* → **Add**, then **Approve**.
+5. Choose **Start work**.
+6. Tick **Internal note (never shown to the tenant)**, type *Plumber visited, waiting for a
+   part* → **Add update**. The note is marked **Internal**.
+7. Untick it, type *Fixed. Please report if it leaks again.* → **Add update**. This one is
+   visible to the tenant.
+8. Choose **Mark resolved**, then **Close**.
+
+**Check:** the request shows **Closed**, with every step listed under **Updates**.
+
+### 8. Move-out notice
+
+1. **Leases → LSE-0001 → Record move-out notice**. **Planned move-out date:** today ·
+   **Notes from the tenant:** Relocating to Nakuru for work → **Record notice**.
+2. **Move-outs** → open **Wanjiku Kamau**. The notice shows **New notice**.
+   Until it is acknowledged it stays private and the unit stays **Occupied**.
+3. Choose **Acknowledge**, add **Staff notes** (optional) → **Acknowledge**.
+
+**Check:** the notice shows **Acknowledged**, and on the property page R1 is now
+**Notice submitted**.
+
+### 9. Inspection with a damage charge
+
+1. On the move-out page choose **Schedule inspection**. **Date:** today → **Schedule**.
+2. Click the inspection reference (**INS-0001**) to open the checklist.
+3. Optional: add an item that isn't on the standard list. **Area:** Balcony ·
+   **Item:** Railing → **Add item**.
+4. Set every item to **Good**, except **Windows** under *Living room*: set it to **Damaged**.
+   Notes and a charge box appear for it. **Notes:** Window pane cracked · **Charge:** 3000.
+5. **Save checklist**.
+   **Check:** *Every item has been checked.* The summary shows **Damage charges: Ksh 3,000**.
+6. Choose **Complete**. **Keys returned:** 2 · tick **Tenant was present** · **Tenant
+   signature:** Wanjiku Kamau · **Inspector signature:** your name → **Complete inspection**.
+
+**Check:** the inspection shows **Completed** with both signatures, and the checklist can no
+longer be edited.
+
+### 10. Settlement and refund
+
+1. Go back to **Move-outs → Wanjiku Kamau**. The **Settle and close** card shows:
+
+   | | |
+   | --- | --- |
+   | Deposit held | Ksh 22,000 |
+   | Damages deducted | Ksh 3,000 |
+   | Balance owed before settlement | Ksh 17,000 |
+   | Deposit applied to balance | Ksh 17,000 |
+   | Refund to tenant | Ksh 2,000 |
+   | Balance still owed after | Ksh 0 |
+
+   Damages come from the inspection automatically. To use a different amount, type it in
+   **Damages override**. Untick *Use the remaining deposit to clear unpaid rent and charges* to refund
+   the whole remainder instead.
+2. **Unit R1 becomes:** Available · **Refund paid by:** M-Pesa · **Refund reference:** the
+   M-Pesa code → **Complete move-out**, then confirm.
+
+**Check:** the notice shows **Moved out**, with a **Final settlement** record of the amounts.
+
+### 11. Lease ended and unit available again
+
+1. Open **Leases → LSE-0001**.
+   **Check:** status **Ended** and **Balance Ksh 0**. The deposit card shows the 3,000
+   deduction and the 2,000 refund.
+2. Open **Properties → Riverside Apartments**.
+   **Check:** unit R1 is **Available** and ready to let again.
+3. Optional: **Audit log** lists every action taken above, with who did it and when.
+
 ## Security model (summary)
 
 - Session cookies (HttpOnly, SameSite=Lax) plus CSRF tokens. The browser calls `/api/*` on the

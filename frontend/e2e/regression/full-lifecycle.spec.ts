@@ -131,6 +131,8 @@ test.describe("Regression: full property lifecycle", () => {
       await app.lease.open(leaseUrl);
       await app.lease.expectStatus("Ended");
       await app.lease.expectBalance("0");
+      await expect(app.lease.text("Deducted", true)).toBeVisible();
+      await expect(app.lease.text("Refunded", true)).toBeVisible();
       await app.properties.open(data.property.name);
       await expect(app.properties.unitTile(unit, "Available")).toBeVisible();
     });
