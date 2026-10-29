@@ -62,6 +62,14 @@ def test_seed_demo_builds_consistent_sample_data_once():
     assert lease_balance(portal.leases.get(status="active")) > 0
     inbox = Notification.objects.filter(recipient_user=portal.user, channel="in_app")
     assert inbox.filter(kind="announcement").exists()
+    # Phase 6: vacant units on the public website, with enquiries.
+    from apps.listings.models import Enquiry, Listing
+
+    assert Listing.objects.filter(organization=org, is_published=True).count() == 2
+    assert set(Enquiry.objects.filter(organization=org).values_list("status", flat=True)) == {
+        "new",
+        "viewing_booked",
+    }
     # Back-filling history doesn't email anyone; delivery is switched back on afterwards.
     assert not Notification.objects.filter(organization=org, channel="email").exists()
     assert settings_for(org).email_enabled

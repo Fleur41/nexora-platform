@@ -1066,3 +1066,76 @@ export interface Report {
   sections: ReportSection[];
   chart?: { label: string; month: string; billed: Money; collected: Money }[];
 }
+
+// --- Listings ---------------------------------------------------------------------------
+
+export interface PublicListing {
+  id: UUID;
+  title: string;
+  description: string;
+  rent: Money;
+  deposit: Money;
+  currency: string;
+  category: string;
+  bedrooms: number;
+  bathrooms: number;
+  property_name: string;
+  town: string;
+  county: string;
+  amenities: string[];
+  available_from: string | null;
+  landlord: { name: string; slug: string; phone: string };
+  photos: { id: UUID; url: string }[];
+  published_at: string | null;
+}
+
+export interface Listing {
+  id: UUID;
+  unit: UUID;
+  unit_number: string;
+  unit_status: UnitStatus;
+  property_id: UUID;
+  property_name: string;
+  rent: Money;
+  title: string;
+  description: string;
+  is_published: boolean;
+  available_from: string | null;
+  contact_phone: string;
+  published_at: string | null;
+  photos: { id: UUID; title: string }[];
+  is_public: boolean;
+  hidden_reason: string;
+  public_url: string;
+  open_enquiries: number;
+  created_at: string;
+}
+
+export type EnquiryKind = "enquiry" | "viewing";
+export type EnquiryStatus = "new" | "contacted" | "viewing_booked" | "closed";
+export type EnquiryOutcome = "" | "let" | "not_interested" | "no_response" | "other";
+export type TimeOfDay = "any" | "morning" | "afternoon" | "evening";
+
+export interface Enquiry {
+  id: UUID;
+  reference: string;
+  listing: UUID;
+  listing_title: string;
+  unit: UUID;
+  unit_number: string;
+  property_name: string;
+  kind: EnquiryKind;
+  name: string;
+  phone: string;
+  email: string;
+  message: string;
+  preferred_date: string | null;
+  preferred_time: TimeOfDay;
+  status: EnquiryStatus;
+  viewing_at: string | null;
+  outcome: EnquiryOutcome;
+  staff_notes: string;
+  handled_by_name: string | null;
+  created_at: string;
+  updated_at: string;
+}

@@ -401,6 +401,16 @@ test("capture the manual's screenshots", async ({ app, tenantApp, page }) => {
   await page.keyboard.press("Escape");
   await expect(dialog).toBeHidden();
 
+  // Publish a vacant unit, so the Listings tab has a live listing in the tour.
+  await ui.openFromSidebar("Listings");
+  await ui.button("New listing").click();
+  await dialog.getByLabel("Property").selectOption({ label: "Riverside Apartments" });
+  await dialog.getByLabel("Unit", { exact: true }).selectOption({ label: "R3 · available" });
+  await dialog.getByLabel("Title").fill("Bright 1-bedroom in Westlands");
+  await dialog.getByLabel("Description").fill("Quiet unit with a balcony. Borehole water and parking.");
+  await dialog.getByRole("button", { name: "Save listing" }).click();
+  await ui.expectToast("Listing is live");
+
   // --- Reference: every tab in the landlord's sidebar, now that there is data in it -----------
   const tour: [label: string, name: string, prepare?: () => Promise<unknown>][] = [
     ["Overview", "tab-overview"],
@@ -411,9 +421,11 @@ test("capture the manual's screenshots", async ({ app, tenantApp, page }) => {
     ["Maintenance", "tab-maintenance", () => ui.field("View").selectOption("all")],
     ["Inspections", "tab-inspections", () => ui.field("Status").selectOption("")],
     ["Move-outs", "tab-move-outs", () => ui.field("View").selectOption("all")],
+    ["Listings", "tab-listings"],
     ["Communications", "tab-communications"],
     ["Billing", "tab-billing", () => page.getByRole("tab", { name: "Invoices" }).click()],
     ["Payments", "tab-payments"],
+    ["Reports", "tab-reports", () => ui.field("Period").selectOption({ label: "This year" })],
     ["Utilities", "tab-utilities"],
     ["Charges", "tab-charges"],
     ["Payment settings", "tab-payment-settings"],

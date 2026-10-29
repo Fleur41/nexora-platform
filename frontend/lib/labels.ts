@@ -11,6 +11,9 @@ import type {
   PaymentProvider,
   PaymentSource,
   DepositKind,
+  EnquiryOutcome,
+  EnquiryStatus,
+  TimeOfDay,
   InvoiceKind,
   MeterUtility,
   PaymentMethod,
@@ -230,4 +233,25 @@ export const MOVE_OUT_STATUS: Record<MoveOutStatus, { label: string; variant: "w
   inspection_scheduled: { label: "Inspection scheduled", variant: "default" },
   completed: { label: "Moved out", variant: "accent" },
   withdrawn: { label: "Withdrawn", variant: "muted" },
+};
+
+export const ENQUIRY_STATUS: Record<EnquiryStatus, { label: string; variant: "warning" | "default" | "accent" | "muted" }> = {
+  new: { label: "New", variant: "warning" },
+  contacted: { label: "Contacted", variant: "default" },
+  viewing_booked: { label: "Viewing booked", variant: "accent" },
+  closed: { label: "Closed", variant: "muted" },
+};
+
+export const ENQUIRY_OUTCOME: Record<Exclude<EnquiryOutcome, "">, string> = {
+  let: "Took the unit",
+  not_interested: "Not interested",
+  no_response: "No response",
+  other: "Other",
+};
+
+export const TIME_OF_DAY: Record<TimeOfDay, string> = {
+  any: "Any time",
+  morning: "Morning",
+  afternoon: "Afternoon",
+  evening: "Evening",
 };

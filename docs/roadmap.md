@@ -131,9 +131,23 @@ notification abstraction (in-app/email/SMS) with delivery records and de-duplica
       security charge it skipped before is now created
 - [x] Tests: 188 backend, 37 frontend unit, 8 Playwright (7 smoke + 1 regression)
 
-## Phase 6 — Reports and public website
+## Phase 6 — Reports and public website ✅ complete
 Financial and occupancy reports (monthly/yearly/custom), exports (CSV/XLSX/PDF), public listings,
 enquiries and viewing requests.
+
+- [x] Reports: financial summary (net billed by income category, money received by method,
+      maintenance costs, deposits, arrears, collection rate, monthly chart), rent roll, aged
+      arrears, occupancy with vacant units, deposits register, maintenance costs
+- [x] Month, year or custom periods; one property or all; assigned staff see only their
+      properties; income dated by the period it bills for
+- [x] Exports: CSV, Excel and PDF, each audited
+- [x] Public listings: publish a unit with chosen photos; shown only while the unit is free to
+      let; area only, never the street address; search by area, rent and size
+- [x] Enquiries and viewing requests from the website: staff notified, confirmation emails,
+      viewings booked, outcomes recorded; rate-limited with a spam trap
+- [x] Capabilities `reports.view`, `listings.view`, `listings.manage`
+- [x] Sample data: published listings and enquiries; the manual covers Reports and Listings
+- [x] Tests: 207 backend, 37 frontend unit, Playwright 9 smoke + regression journey
 
 ## Phase 7 — SaaS and production readiness
 Subscription plans and limits, platform administration console with audited, time-limited
@@ -141,7 +155,11 @@ support access, security review, accessibility audit, deployment and backup runb
 
 ## Known limitations (current)
 
-- Reports are not built yet; the navigation lists only built pages.
+- Expenses in reports are maintenance costs recorded on repairs; there is no general expenses
+  module yet (utility bills paid by the landlord, salaries, etc.).
+- The arrears report is always as of today; other reports cover any past period.
+- Public listing pages are rendered in the browser, so search engines and link previews see only
+  the page title, not each home's details. Server rendering comes with production hardening.
 - M-Pesa integration is untested against Safaricom's real APIs (needs credentials); no direct bank
   API integration (CSV import only).
 - Payment allocation can't be moved between invoices after the fact; reverse and re-record instead.
