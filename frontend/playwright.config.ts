@@ -1,11 +1,17 @@
 import { defineConfig, devices } from "@playwright/test";
 
 // End-to-end tests drive the real stack: Django on :8000 (with Postgres) and Next.js on
-// :3000. Start both first (see README), then run `npm run test:e2e`.
-// For QA, `npm run test:e2e:headed` shows the browser (HEADED=1) and slows each action
-// (E2E_SLOW_MO, in milliseconds) so the flow can be followed on screen.
+// :3000. Start both first (see README).
+//
+//   e2e/smoke/       fast, independent checks of each feature (CI)      npm run test:e2e
+//   e2e/regression/  one slow journey from sign-up to move-out (QA)     npm run test:regression
+//   e2e/pages/       page objects shared by the tests
+//   e2e/support/     fixtures and test data
+//
+// HEADED=1 shows the browser and runs one test at a time. E2E_SLOW_MO (milliseconds) slows
+// every action; when headed it defaults to 300 for smoke and 800 for the regression journey.
 const headed = Boolean(process.env.HEADED);
-const slowMo = Number(process.env.E2E_SLOW_MO ?? (headed ? 300 : 0));
+const slowMo = (headedDefault: number) => Number(process.env.E2E_SLOW_MO ?? (headed ? headedDefault : 0));
 
 export default defineConfig({
   testDir: "./e2e",
@@ -14,16 +20,37 @@ export default defineConfig({
   // One browser window at a time when watching.
   workers: headed ? 1 : undefined,
   retries: 0,
-  reporter: [["list"]],
+  reporter: [["list"], ["html", { open: "never" }]],
   use: {
     baseURL: process.env.E2E_BASE_URL ?? "http://localhost:3000",
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
     headless: !headed,
-    launchOptions: { slowMo },
   },
   projects: [
-    { name: "desktop", use: { ...devices["Desktop Chrome"] } },
-    { name: "mobile", use: { ...devices["Pixel 7"] }, testMatch: /mobile\.spec\.ts/ },
+    {
+      name: "desktop",
+      testDir: "./e2e/smoke",
+      testIgnore: /mobile\.spec\.ts/,
+      use: { ...devices["Desktop Chrome"], launchOptions: { slowMo: slowMo(300) } },
+    },
+    {
+      name: "mobile",
+      testDir: "./e2e/smoke",
+      testMatch: /mobile\.spec\.ts/,
+      use: { ...devices["Pixel 7"], launchOptions: { slowMo: slowMo(300) } },
+    },
+    {
+      name: "regression",
+      testDir: "./e2e/regression",
+      // The journey is long, and slower still when watched.
+      timeout: 20 * 60_000,
+      use: {
+        ...devices["Desktop Chrome"],
+        launchOptions: { slowMo: slowMo(800) },
+        video: "retain-on-failure",
+        screenshot: "on",
+      },
+    },
   ],
 });

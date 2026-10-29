@@ -40,7 +40,7 @@ frontend/               Next.js app; talks to Django only through lib/api/client
   app/                  routes: (public) landing, (auth) pages, onboarding, dashboard
   components/           ui primitives, layout shell, providers, brand
   features/             per-domain API hooks, schemas and components
-  e2e/                  Playwright browser tests against the running stack
+  e2e/                  Playwright tests: page objects, smoke and regression suites
 docs/                   architecture and roadmap
 docker-compose.yml      Postgres, Redis, Mailpit, backend, Celery worker + beat, frontend
 ```
@@ -128,10 +128,11 @@ npm run lint && npm run typecheck && npm test && npm run build
 
 # Browser end-to-end tests: start Django (:8000) and Next.js (:3000) first
 npx playwright install chromium            # once
-npm run test:e2e
-npm run test:e2e:headed                    # QA: visible browser, one spec at a time, slowed down
-E2E_SLOW_MO=0 npm run test:e2e:headed -- e2e/operations-flow.spec.ts   # one spec, full speed
+npm run test:e2e                           # smoke tests, headless (CI)
+npm run test:regression                    # QA: full sign-up → move-out journey, visible and slowed down
 ```
+
+See `frontend/e2e/README.md` for the page objects, the regression stages and speed options.
 
 CI (`.github/workflows/ci.yml`) runs the same checks plus `manage.py check --deploy`.
 
