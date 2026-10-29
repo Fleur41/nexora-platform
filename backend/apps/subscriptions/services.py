@@ -274,7 +274,7 @@ def mark_paid(
 def change_plan(*, request, organization: Organization, plan: Plan) -> Subscription:
     """Switch plans. Takes effect now; unpaid invoices are re-priced to the new plan."""
     sub = Subscription.objects.select_for_update().get(organization=organization)
-    if not plan.is_active and not getattr(request.user, "is_staff", False):
+    if not plan.is_active and not getattr(request.user, "is_platform_admin", False):
         raise BusinessRuleViolation("That plan isn't available.")
     used = units_used(organization)
     if plan.max_units is not None and used > plan.max_units:

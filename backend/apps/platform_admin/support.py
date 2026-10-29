@@ -37,7 +37,7 @@ def support_membership(grant: SupportGrant) -> Membership:
 
 
 def active_support_membership(user, organization_id) -> Membership | None:
-    if not getattr(user, "is_staff", False):
+    if not getattr(user, "is_platform_admin", False):
         return None
     grant = (
         SupportGrant.objects.active()

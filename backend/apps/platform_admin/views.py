@@ -1,7 +1,7 @@
 """Nexora platform console API: organizations, subscriptions, invoices, plans, support access.
 
-For Nexora staff only (`User.is_staff`). Every change is audited against the organization it
-affects, so owners see platform actions in their own audit log too.
+For Nexora platform admins only (`User.is_platform_admin`). Every change is audited against
+the organization it affects, so owners see platform actions in their own audit log too.
 """
 
 from datetime import timedelta
@@ -33,7 +33,9 @@ class IsPlatformAdmin(permissions.BasePermission):
     message = "Only Nexora platform staff can do this."
 
     def has_permission(self, request, view) -> bool:
-        return bool(request.user and request.user.is_authenticated and request.user.is_staff)
+        return bool(
+            request.user and request.user.is_authenticated and request.user.is_platform_admin
+        )
 
 
 class PlatformView(APIView):

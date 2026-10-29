@@ -18,7 +18,7 @@ pytestmark = pytest.mark.django_db
 
 @pytest.fixture
 def staff():
-    user = UserFactory(is_staff=True, full_name="Nexora Support")
+    user = UserFactory(is_platform_admin=True, full_name="Nexora Support")
     client = APIClient()
     client.force_authenticate(user)
     return user, client
@@ -30,7 +30,7 @@ def org_client(user, org):
     return client
 
 
-def test_platform_api_is_staff_only(make_member, org_a):
+def test_platform_api_is_for_platform_admins_only(make_member, org_a):
     _, owner = make_member(org_a)
     assert owner.get("/api/v1/platform/organizations/").status_code == 403
     assert APIClient().get("/api/v1/platform/overview/").status_code in (401, 403)
@@ -88,7 +88,7 @@ def test_staff_change_plan_extend_access_and_record_payment(staff, make_member, 
         format="json",
     )
     assert paid.status_code == 200 and paid.data["status"] == "paid"
-    assert SubscriptionInvoice.objects.get(pk=invoice["id"]).recorded_by.is_staff
+    assert SubscriptionInvoice.objects.get(pk=invoice["id"]).recorded_by.is_platform_admin
     logged = set(AuditLog.objects.filter(organization=org_a).values_list("action", flat=True))
     assert {"platform.subscription_updated", "subscription.paid"} <= logged
 

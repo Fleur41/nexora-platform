@@ -41,7 +41,7 @@ class OrganizationListCreateView(APIView):
     @extend_schema(responses=MyOrganizationSerializer(many=True))
     def get(self, request):
         memberships = list(_my_memberships(request.user))
-        if request.user.is_staff:
+        if request.user.is_platform_admin:
             from apps.platform_admin.models import SupportGrant
             from apps.platform_admin.support import support_membership
 
