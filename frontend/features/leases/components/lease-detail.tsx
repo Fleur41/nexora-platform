@@ -5,6 +5,7 @@ import {
   ArrowLeft,
   CalendarPlus,
   CheckCircle2,
+  DoorOpen,
   LogOut,
   Trash2,
   XCircle,
@@ -47,6 +48,7 @@ import {
 } from "@/features/billing/components/lease-account";
 import { DepositCard } from "@/features/deposits/components/deposit-card";
 import { PaymentInstructionsCard } from "@/features/payments/components/lease-payments";
+import { GiveNoticeDialog } from "@/features/moveouts/components/move-outs-page";
 import { DocumentsPanel } from "@/features/documents/components/documents-panel";
 import {
   useAddRentTerm,
@@ -76,7 +78,7 @@ export function LeaseDetail() {
   const action = useLeaseAction();
   const removeTerm = useRemoveRentTerm();
   const [dialog, setDialog] = React.useState<
-    "rent" | "end" | "cancel" | "activate" | null
+    "rent" | "end" | "cancel" | "activate" | "notice" | null
   >(null);
   const canManage = can("leases.manage");
   const tz = current.organization.timezone;
@@ -165,6 +167,11 @@ export function LeaseDetail() {
             {(l.status === "draft" || l.status === "active") && (
               <Button variant="outline" onClick={() => setDialog("rent")}>
                 <CalendarPlus /> Schedule rent change
+              </Button>
+            )}
+            {l.status === "active" && can("moveouts.manage") && (
+              <Button variant="outline" onClick={() => setDialog("notice")}>
+                <DoorOpen /> Record move-out notice
               </Button>
             )}
             {l.status === "active" && (
@@ -339,6 +346,11 @@ export function LeaseDetail() {
         lease={l}
         open={dialog === "rent"}
         onOpenChange={(o) => setDialog(o ? "rent" : null)}
+      />
+      <GiveNoticeDialog
+        lease={{ id: l.id, label: `${l.reference} · ${l.tenant_name}` }}
+        open={dialog === "notice"}
+        onOpenChange={(o) => setDialog(o ? "notice" : null)}
       />
       <EndLeaseDialog
         lease={l}
@@ -522,8 +534,8 @@ function EndLeaseDialog({
           <DialogTitle>End lease {lease.reference}</DialogTitle>
           <DialogDescription>
             Close the tenancy once the tenant has left. The lease and its
-            history stay on record. Deposit settlement and move-out inspections
-            are handled separately.
+            history stay on record. To settle the deposit and final bill in one
+            step, record a move-out notice instead.
           </DialogDescription>
         </DialogHeader>
         {action.isError && (

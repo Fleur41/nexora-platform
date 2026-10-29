@@ -17,6 +17,7 @@ import { cn } from "@/lib/utils";
 import type { User } from "@/types/api";
 
 import { AuthGate, FullPageSkeleton } from "./auth-gate";
+import { NotificationBell } from "./notification-bell";
 import { OrganizationSwitcher } from "./organization-switcher";
 import { UserMenu } from "./user-menu";
 
@@ -77,6 +78,7 @@ function OrganizationGate({ user, children }: { user: User; children: React.Reac
 
 function ShellLayout({ user, children }: { user: User; children: React.ReactNode }) {
   const [mobileOpen, setMobileOpen] = React.useState(false);
+  const { current, organizations } = useOrganization();
 
   return (
     <div className="flex min-h-screen bg-muted/40 print:bg-white">
@@ -112,6 +114,7 @@ function ShellLayout({ user, children }: { user: User; children: React.ReactNode
             <span className="sr-only">Open navigation</span>
           </Button>
           <div className="flex-1" />
+          <NotificationBell timeZone={current.organization.timezone} showOrganization={organizations.length > 1} />
           <UserMenu user={user} />
         </header>
         <main className="flex-1 px-4 py-6 sm:px-6 lg:px-8">{children}</main>

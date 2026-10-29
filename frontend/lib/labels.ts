@@ -1,5 +1,6 @@
 import type {
   BillingFrequency,
+  Inspection,
   InspectionKind,
   ItemCondition,
   MaintenanceCategory,
@@ -206,6 +207,12 @@ export const INSPECTION_KIND: Record<InspectionKind, string> = {
   move_in: "Move-in",
   move_out: "Move-out",
   routine: "Routine",
+};
+
+export const INSPECTION_STATUS: Record<Inspection["status"], { label: string; variant: "default" | "accent" | "muted" }> = {
+  scheduled: { label: "Scheduled", variant: "default" },
+  completed: { label: "Completed", variant: "accent" },
+  cancelled: { label: "Cancelled", variant: "muted" },
 };
 
 export const ITEM_CONDITION: Record<ItemCondition, string> = {

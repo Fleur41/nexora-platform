@@ -1,5 +1,8 @@
 import {
   Building2,
+  ClipboardCheck,
+  LogOut,
+  Megaphone,
   DoorOpen,
   FileText,
   Banknote,
@@ -34,6 +37,9 @@ export const DASHBOARD_NAV: NavItem[] = [
   { href: "/dashboard/tenants", label: "Tenants", icon: Users, capability: "tenants.view" },
   { href: "/dashboard/leases", label: "Leases", icon: FileText, capability: "leases.view" },
   { href: "/dashboard/maintenance", label: "Maintenance", icon: Wrench, capability: "maintenance.view" },
+  { href: "/dashboard/inspections", label: "Inspections", icon: ClipboardCheck, capability: "inspections.view" },
+  { href: "/dashboard/move-outs", label: "Move-outs", icon: LogOut, capability: "moveouts.view" },
+  { href: "/dashboard/communications", label: "Communications", icon: Megaphone, capability: "announcements.send" },
   { href: "/dashboard/billing", label: "Billing", icon: Receipt, capability: "billing.view" },
   { href: "/dashboard/payments", label: "Payments", icon: Banknote, capability: "payments.view" },
   { href: "/dashboard/utilities", label: "Utilities", icon: Gauge, capability: "meters.view" },
