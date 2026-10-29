@@ -54,9 +54,16 @@ class MyOrganizationSerializer(serializers.Serializer):
     role = serializers.CharField()
     access_scope = serializers.CharField()
     capabilities = serializers.SerializerMethodField()
+    support_until = serializers.SerializerMethodField(
+        help_text="Set when this is Nexora support access (read-only), not a membership."
+    )
 
     def get_capabilities(self, membership: Membership) -> list[str]:
         return sorted(membership.capabilities)
+
+    def get_support_until(self, membership: Membership):
+        grant = getattr(membership, "support_grant", None)
+        return grant.expires_at if grant else None
 
 
 class MembershipSerializer(serializers.ModelSerializer):

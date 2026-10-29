@@ -49,6 +49,7 @@ INSTALLED_APPS = [
     "apps.reports",
     "apps.listings",
     "apps.subscriptions",
+    "apps.platform_admin",
 ]
 
 MIDDLEWARE = [
