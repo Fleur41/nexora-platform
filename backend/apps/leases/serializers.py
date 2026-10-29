@@ -68,6 +68,7 @@ class LeaseSerializer(serializers.ModelSerializer):
             "billing_frequency",
             "rent_due_day",
             "deposit_amount",
+            "first_month_in_full",
             "monthly_rent",
             "current_rent",
             "rent_terms",
@@ -125,6 +126,10 @@ class EndLeaseSerializer(serializers.Serializer):
     ended_on = serializers.DateField()
     unit_status = serializers.ChoiceField(choices=sorted(Unit.POST_LEASE_STATUSES))
     reason = serializers.CharField(max_length=255, required=False, allow_blank=True, default="")
+
+
+class FirstMonthSerializer(serializers.Serializer):
+    first_month_in_full = serializers.BooleanField()
 
 
 class CancelLeaseSerializer(serializers.Serializer):

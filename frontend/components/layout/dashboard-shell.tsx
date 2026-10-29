@@ -87,7 +87,8 @@ function ShellLayout({ user, children }: { user: User; children: React.ReactNode
 
   return (
     <div className="flex min-h-screen bg-muted/40 print:bg-white">
-      <aside className="hidden w-64 shrink-0 flex-col bg-sidebar lg:flex print:hidden">
+      {/* Pinned to the window: long pages scroll on their own, the sidebar stays put. */}
+      <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col bg-sidebar lg:flex print:hidden">
         <SidebarContent />
       </aside>
 
@@ -133,7 +134,8 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   const { can } = useOrganization();
   const items = DASHBOARD_NAV.filter((item) => !item.capability || can(item.capability));
   return (
-    <div className="flex h-full flex-col gap-6 p-4">
+    // Scrolls by itself if the links don't fit the window height.
+    <div className="flex h-full flex-col gap-6 overflow-y-auto p-4">
       <Link href="/dashboard" className="px-2 pt-2" onClick={onNavigate}>
         <NexoraLogo tone="inverse" />
       </Link>

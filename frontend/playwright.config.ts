@@ -7,6 +7,7 @@ import { defineConfig, devices } from "@playwright/test";
 //   e2e/regression/  one slow journey from sign-up to move-out (QA)     npm run test:regression
 //   e2e/pages/       page objects shared by the tests
 //   e2e/support/     fixtures and test data
+//   e2e/manual/      captures the user manual's screenshots and builds docs/manual (PDF)
 //
 // HEADED=1 shows the browser and runs one test at a time. E2E_SLOW_MO (milliseconds) slows
 // every action; when headed it defaults to 300 for smoke and 800 for the regression journey.
@@ -55,6 +56,14 @@ export default defineConfig({
         video: "retain-on-failure",
         screenshot: "on",
       },
+    },
+    {
+      // Screenshots for the user manual (docs/manual); run with `npm run docs:manual`.
+      name: "manual",
+      testDir: "./e2e/manual",
+      testMatch: /capture\.spec\.ts/,
+      timeout: 10 * 60_000,
+      use: { ...devices["Desktop Chrome"], deviceScaleFactor: 1.5, launchOptions: { slowMo: slowMo(0) } },
     },
   ],
 });

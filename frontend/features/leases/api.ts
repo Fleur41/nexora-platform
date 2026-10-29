@@ -47,6 +47,7 @@ export interface LeaseInput {
   billing_frequency: BillingFrequency;
   rent_due_day: number;
   notes: string;
+  first_month_in_full?: boolean;
   activate?: boolean;
 }
 
@@ -79,6 +80,16 @@ export function useLeaseAction() {
       action: "activate" | "cancel" | "end";
       body?: { ended_on?: string; unit_status?: UnitStatus; reason?: string };
     }) => api.post<Lease>(`/leases/${id}/${action}/`, body ?? {}),
+    onSuccess: () => invalidate(...LEASE_RESOURCES),
+  });
+}
+
+/** Switch “charge the first month in full”. Refused once the first period is billed (void it first). */
+export function useSetFirstMonthInFull() {
+  const invalidate = useInvalidateOrg();
+  return useMutation({
+    mutationFn: ({ id, enabled }: { id: string; enabled: boolean }) =>
+      api.post<Lease>(`/leases/${id}/first-month/`, { first_month_in_full: enabled }),
     onSuccess: () => invalidate(...LEASE_RESOURCES),
   });
 }

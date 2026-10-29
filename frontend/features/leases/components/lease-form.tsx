@@ -41,6 +41,7 @@ const schema = z
     billing_frequency: z.enum(Object.keys(BILLING_FREQUENCY) as [BillingFrequency, ...BillingFrequency[]]),
     rent_due_day: z.coerce.number<string>().int().min(1, "1–28").max(28, "1–28"),
     notes: optionalText(5000),
+    first_month_in_full: z.boolean(),
     activate: z.boolean(),
   })
   .refine((v) => !v.end_date || v.end_date >= v.start_date, {
@@ -76,10 +77,13 @@ export function LeaseForm() {
       billing_frequency: "monthly",
       rent_due_day: "1",
       notes: "",
+      first_month_in_full: false,
       activate: true,
     },
   });
   const [propertyId, unitId, tenantId] = useWatch({ control: form.control, name: ["property", "unit", "tenant"] });
+  const [startDate, rentValue, frequency] = useWatch({ control: form.control, name: ["start_date", "monthly_rent", "billing_frequency"] });
+  const firstPeriod = firstPeriodPreview(startDate, rentValue, frequency);
 
   const tenants = useTenants({ search: debouncedTenant, status: "active", page_size: 50 });
   const preset = useTenant(presetTenant || "none");
@@ -231,6 +235,22 @@ export function LeaseForm() {
             <FormField id="l-due" label="Rent due day of month" error={errors.rent_due_day?.message}>
               <Input type="number" min={1} max={28} {...form.register("rent_due_day")} />
             </FormField>
+            {firstPeriod && (
+              <label className="flex items-start gap-3 rounded-lg border bg-muted/40 p-3 text-sm sm:col-span-2">
+                <input type="checkbox" className="mt-0.5 size-4 accent-[var(--accent)]" {...form.register("first_month_in_full")} />
+                <span>
+                  <span className="font-medium">Charge the first {frequency === "monthly" ? "month" : "period"} in full</span>
+                  <span className="block text-muted-foreground">
+                    The tenancy starts part-way through the month. Normally the first bill covers only
+                    the days from the start date
+                    {firstPeriod.prorated !== null && (
+                      <> ({firstPeriod.days} of {firstPeriod.daysInMonth} days: {formatMoney(firstPeriod.prorated, currency)} instead of {formatMoney(firstPeriod.full, currency)})</>
+                    )}
+                    . Tick this if your agreement says the first {frequency === "monthly" ? "month" : "period"} is paid in full.
+                  </span>
+                </span>
+              </label>
+            )}
             <div className="sm:col-span-2">
               <FormField id="l-notes" label="Notes" error={errors.notes?.message}>
                 <Textarea rows={2} {...form.register("notes")} />
@@ -268,3 +288,16 @@ export function LeaseForm() {
     </>
   );
 }
+
+/** For a start date after the 1st: how the first month would be prorated (monthly leases). */
+function firstPeriodPreview(start: string, rent: string, frequency: BillingFrequency) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(start ?? "")) return null;
+  const [y, m, d] = start.split("-").map(Number) as [number, number, number];
+  if (d === 1) return null;
+  const daysInMonth = new Date(Date.UTC(y, m, 0)).getUTCDate();
+  const days = daysInMonth - d + 1;
+  const full = Number(rent);
+  const prorated = frequency === "monthly" && full > 0 ? Math.round((full * days * 100) / daysInMonth) / 100 : null;
+  return { days, daysInMonth, full, prorated };
+}
+

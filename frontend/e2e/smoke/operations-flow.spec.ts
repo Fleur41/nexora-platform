@@ -115,6 +115,10 @@ test("owner handles a move-out notice through inspection to final settlement, th
   await expect(text(page, "Signed by inspector: Operations Owner")).toBeVisible();
   await expect(page.getByRole("button", { name: "Save checklist" })).toHaveCount(0);
 
+  // The sidebar stays on screen while a long page (this checklist) scrolls.
+  await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+  await expect(page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Overview" })).toBeInViewport();
+
   // --- Settlement: damages come from the inspection; refund the rest -------------------
   await page.goto(moveOutUrl);
   await expect(text(page, "Settle and close")).toBeVisible();

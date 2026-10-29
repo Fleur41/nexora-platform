@@ -20,3 +20,7 @@ frontend/*.tsbuildinfo
 frontend/test-results/
 frontend/playwright-report/
 backend/private_media/
+
+# User manual build output (the PDF itself is committed; regenerate with npm run docs:manual)
+docs/manual/screens/
+docs/manual/manual.html

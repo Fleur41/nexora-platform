@@ -54,6 +54,7 @@ def create_lease(
     billing_frequency: str = Lease.BillingFrequency.MONTHLY,
     rent_due_day: int = 1,
     deposit_amount: Decimal = Decimal("0"),
+    first_month_in_full: bool = False,
     notes: str = "",
     activate: bool = False,
 ) -> Lease:
@@ -72,6 +73,7 @@ def create_lease(
         billing_frequency=billing_frequency,
         rent_due_day=rent_due_day,
         deposit_amount=quantize(deposit_amount),
+        first_month_in_full=first_month_in_full,
         notes=notes,
         created_by=request.user,
     )
@@ -95,6 +97,43 @@ def create_lease(
     )
     if activate:
         lease = activate_lease(request=request, lease=lease)
+    return lease
+
+
+@transaction.atomic
+def set_first_month_in_full(*, request, lease: Lease, enabled: bool) -> Lease:
+    """Change how the first billing period is charged, as long as it hasn't been billed.
+
+    Once the first period is on an issued invoice, void that invoice first; the next billing
+    run then bills the period the new way.
+    """
+    from apps.billing.models import Invoice
+    from apps.billing.periods import billing_period, month_start
+
+    lease = Lease.objects.select_for_update().get(pk=lease.pk)
+    if lease.status not in (Lease.Status.DRAFT, Lease.Status.ACTIVE):
+        raise BusinessRuleViolation("Only draft or active leases can be changed.")
+    if lease.first_month_in_full == enabled:
+        return lease
+    first = billing_period(lease.start_date, lease.billing_frequency, month_start(lease.start_date))
+    if Invoice.objects.filter(
+        lease=lease,
+        status=Invoice.Status.ISSUED,
+        kind=Invoice.Kind.REGULAR,
+        period_start=first[0],
+    ).exists():
+        raise BusinessRuleViolation(
+            "The first period is already billed. Void that invoice first, then change this "
+            "and bill the month again."
+        )
+    lease.first_month_in_full = enabled
+    lease.save(update_fields=["first_month_in_full", "updated_at"])
+    record_event(
+        request,
+        "lease.updated",
+        target=lease,
+        changes={"first_month_in_full": {"from": str(not enabled), "to": str(enabled)}},
+    )
     return lease
 
 

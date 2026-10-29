@@ -55,6 +55,7 @@ import {
   useLease,
   useLeaseAction,
   useRemoveRentTerm,
+  useSetFirstMonthInFull,
 } from "@/features/leases/api";
 import { ApiError, errorMessage } from "@/lib/api/errors";
 import {
@@ -307,6 +308,7 @@ export function LeaseDetail() {
                   value={`${BILLING_FREQUENCY[l.billing_frequency]}, due on day ${l.rent_due_day}`}
                 />
                 <Row label="Start" value={formatDay(l.start_date)} />
+                {!l.start_date.endsWith("-01") && <FirstMonthRow lease={l} canManage={canManage} />}
                 <Row
                   label="Contract end"
                   value={
@@ -377,6 +379,56 @@ export function LeaseDetail() {
         onConfirm={() => run("cancel")}
       />
     </>
+  );
+}
+
+function FirstMonthRow({ lease: l, canManage }: { lease: Lease; canManage: boolean }) {
+  const setFirstMonth = useSetFirstMonthInFull();
+  const [confirming, setConfirming] = React.useState(false);
+  const period = l.billing_frequency === "monthly" ? "month" : "period";
+  const editable = canManage && (l.status === "draft" || l.status === "active");
+  return (
+    <div className="flex justify-between gap-4">
+      <dt className="text-muted-foreground">First {period}</dt>
+      <dd className="text-right">
+        {l.first_month_in_full ? "Charged in full" : "Prorated from the start date"}
+        {editable && (
+          <button type="button" className="ml-2 text-xs font-medium text-accent-strong hover:underline" onClick={() => setConfirming(true)}>
+            Change
+          </button>
+        )}
+      </dd>
+      <ConfirmDialog
+        open={confirming}
+        onOpenChange={setConfirming}
+        title={l.first_month_in_full ? `Prorate the first ${period}?` : `Charge the first ${period} in full?`}
+        description={
+          <>
+            {l.first_month_in_full
+              ? `The first bill will cover only the days from ${formatDay(l.start_date)}.`
+              : `The first bill will charge the whole ${period}, even though the tenancy starts on ${formatDay(l.start_date)}.`}{" "}
+            If that {period} is already billed, void its invoice first, then generate it again.
+          </>
+        }
+        confirmLabel={l.first_month_in_full ? "Prorate it" : "Charge in full"}
+        loading={setFirstMonth.isPending}
+        onConfirm={() =>
+          setFirstMonth.mutate(
+            { id: l.id, enabled: !l.first_month_in_full },
+            {
+              onSuccess: () => {
+                setConfirming(false);
+                toast.success("First month billing updated");
+              },
+              onError: (err) => {
+                setConfirming(false);
+                toast.error(errorMessage(err));
+              },
+            },
+          )
+        }
+      />
+    </div>
   );
 }
 

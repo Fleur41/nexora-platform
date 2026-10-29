@@ -28,7 +28,7 @@ from apps.utilities.models import MeterReading
 
 from .defaults import ensure_default_charge_types
 from .models import ChargeRule, ChargeType, Invoice, InvoiceLine, SharedCost
-from .periods import billing_period, clip, describe_range, month_end, prorate
+from .periods import billing_period, clip, describe_range, month_end, month_start, prorate
 from .rules import RuleBook
 
 
@@ -131,17 +131,25 @@ class _Drafter:
         period = billing_period(lease.start_date, lease.billing_frequency, self.month)
         if period is None:
             return [], None
-        span = clip(*period, lease.start_date, lease.ended_on)
+        # Normally the first period is prorated from the start date. With "first month in full"
+        # the first period is charged from its first day, at the opening rent.
+        in_full = (
+            lease.first_month_in_full
+            and period[0] == month_start(lease.start_date)
+            and lease.start_date > period[0]
+        )
+        span = clip(*period, period[0] if in_full else lease.start_date, lease.ended_on)
         if span is None:
             return [], period
         a, b = span
         unit = lease.unit
         lines = []
+        suffix = " (first month charged in full)" if in_full else ""
 
         terms = sorted(lease.rent_terms.all(), key=lambda t: t.effective_from)
 
         def term_on(d):
-            current = None
+            current = terms[0] if in_full and terms else None
             for term in terms:
                 if term.effective_from <= d:
                     current = term
@@ -159,7 +167,7 @@ class _Drafter:
             lines.append(
                 DraftLine(
                     charge_type=self.rent_type,
-                    description=f"Rent · {describe_range(a, b)}",
+                    description=f"Rent · {describe_range(a, b)}{suffix}",
                     amount=rent,
                     unit_price=rent,
                     period_start=a,
@@ -185,7 +193,7 @@ class _Drafter:
             lines.append(
                 DraftLine(
                     charge_type=charge_type,
-                    description=f"{charge_type.name} · {describe_range(a, b)}",
+                    description=f"{charge_type.name} · {describe_range(a, b)}{suffix}",
                     amount=amount,
                     unit_price=amount,
                     period_start=a,

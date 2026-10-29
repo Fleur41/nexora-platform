@@ -136,6 +136,61 @@ def test_first_month_is_prorated_from_move_in(make_member, org_a, unit_type):
     assert invoice.due_date == date(2026, 8, 21)  # not before the tenancy starts
 
 
+def test_first_month_in_full_charges_the_whole_first_month(make_member, org_a, unit_type):
+    _, client = make_member(org_a)
+    add_rule(client, org_a, "security", amount="1500", effective_from="2026-01-01")
+    lease = lease_on(
+        unit_type, start=date(2026, 8, 29), rent="13000", first_month_in_full=True, rent_due_day=5
+    )
+    run(client, "2026-08")
+    run(client, "2026-09")
+    first, second = invoices_for(lease)
+    assert first.total == Decimal("14500.00")  # 13,000 rent + 1,500 security, not 3/31 of it
+    assert sorted(line.description for line in first.lines.all()) == [
+        "Rent · Aug 2026 (first month charged in full)",
+        "Security · Aug 2026 (first month charged in full)",
+    ]
+    assert first.due_date == date(2026, 8, 29)  # still never due before the tenancy starts
+    assert second.total == Decimal("14500.00")  # later months are unchanged
+
+
+def test_first_period_in_full_for_a_quarterly_lease(make_member, org_a, unit_type):
+    _, client = make_member(org_a)
+    lease = lease_on(
+        unit_type,
+        start=date(2026, 8, 21),
+        rent="20000",
+        billing_frequency="quarterly",
+        first_month_in_full=True,
+    )
+    run(client, "2026-08")
+    assert invoices_for(lease).get().total == Decimal("60000.00")
+
+
+def test_first_month_in_full_can_change_until_the_first_period_is_billed(
+    make_member, org_a, unit_type
+):
+    _, client = make_member(org_a)
+    lease = lease_on(unit_type, start=date(2026, 8, 29), rent="13000", rent_due_day=5)
+    run(client, "2026-08")
+    prorated = invoices_for(lease).get()
+    assert prorated.total == Decimal("1258.06")  # 3 of 31 days
+
+    url = f"/api/v1/leases/{lease.pk}/first-month/"
+    res = client.post(url, {"first_month_in_full": True})
+    assert res.status_code == 409  # already billed: void it first
+    assert "Void that invoice first" in str(res.data)
+
+    res = client.post(f"/api/v1/invoices/{prorated.pk}/void/", {"reason": "Bill the full month"})
+    assert res.status_code == 200, res.data
+    res = client.post(url, {"first_month_in_full": True})
+    assert res.status_code == 200, res.data
+    assert res.data["first_month_in_full"] is True
+    run(client, "2026-08")
+    assert invoices_for(lease).get().total == Decimal("13000.00")
+    assert AuditLog.objects.filter(action="lease.updated", target_id=str(lease.pk)).exists()
+
+
 def test_rent_change_mid_month_is_split_by_day(make_member, org_a, unit_type):
     _, client = make_member(org_a)
     lease = lease_on(unit_type, rent="31000")

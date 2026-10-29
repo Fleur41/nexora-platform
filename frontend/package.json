@@ -14,7 +14,8 @@
     "test:e2e:headed": "HEADED=1 playwright test --project=desktop --project=mobile",
     "test:regression": "HEADED=1 playwright test --project=regression",
     "test:regression:ci": "playwright test --project=regression",
-    "test:e2e:report": "playwright show-report"
+    "test:e2e:report": "playwright show-report",
+    "docs:manual": "playwright test --project=manual && node e2e/manual/build-pdf.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^6.0.0",
