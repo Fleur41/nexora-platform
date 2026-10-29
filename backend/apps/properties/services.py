@@ -91,6 +91,9 @@ def create_unit_type(*, request, organization, **fields) -> UnitType:
 
 @transaction.atomic
 def create_unit(*, request, organization, **fields) -> Unit:
+    from apps.subscriptions.services import check_unit_capacity
+
+    check_unit_capacity(organization, 1)
     _validate_unit_type(fields["property"], fields["unit_type"])
     if fields.get("market_rent") is None:
         fields["market_rent"] = fields["unit_type"].default_rent
@@ -125,6 +128,9 @@ def bulk_create_units(
     _validate_unit_type(property, unit_type)
     if not 1 <= count <= MAX_BULK_UNITS:
         raise BusinessRuleViolation(f"You can create between 1 and {MAX_BULK_UNITS} units at once.")
+    from apps.subscriptions.services import check_unit_capacity
+
+    check_unit_capacity(organization, count)
     numbers = [f"{prefix}{n}" for n in range(start, start + count)]
     taken = set(
         Unit.objects.filter(property=property, number__in=numbers).values_list("number", flat=True)

@@ -48,6 +48,7 @@ INSTALLED_APPS = [
     "apps.portal",
     "apps.reports",
     "apps.listings",
+    "apps.subscriptions",
 ]
 
 MIDDLEWARE = [
@@ -229,6 +230,10 @@ CELERY_BEAT_SCHEDULE = {
         "task": "apps.notifications.tasks.send_scheduled_reminders",
         "schedule": 60 * 60 * 6,  # dedupe keys make repeated runs harmless
     },
+    "subscription-lifecycle": {
+        "task": "apps.subscriptions.tasks.run_subscription_lifecycle",
+        "schedule": 60 * 60 * 6,  # idempotent: one invoice per period, status only moves forward
+    },
     "retry-stuck-notifications": {
         "task": "apps.notifications.tasks.retry_stuck_notifications",
         "schedule": 60 * 15,
@@ -260,6 +265,19 @@ NEXORA_FIELD_ENCRYPTION_KEY = env("NEXORA_FIELD_ENCRYPTION_KEY", default="")
 NEXORA_PUBLIC_API_URL = env("NEXORA_PUBLIC_API_URL", default="").rstrip("/")
 # Optional allowlist of Safaricom callback source IPs. Empty = accept from anywhere (the
 # per-configuration secret in the callback URL still authenticates the sender).
+# --- Nexora's own subscription billing ---------------------------------------------------
+NEXORA_TRIAL_DAYS = env.int("NEXORA_TRIAL_DAYS", default=30)
+NEXORA_TRIAL_PLAN = env("NEXORA_TRIAL_PLAN", default="growth")
+# How landlords pay Nexora. The account number is each organization's subscription code.
+NEXORA_PAYBILL = env("NEXORA_PAYBILL", default="")
+NEXORA_BANK_NAME = env("NEXORA_BANK_NAME", default="")
+NEXORA_BANK_ACCOUNT = env("NEXORA_BANK_ACCOUNT", default="")
+# Nexora's own Daraja app, for M-Pesa prompts on Nexora invoices (optional).
+NEXORA_MPESA_ENVIRONMENT = env("NEXORA_MPESA_ENVIRONMENT", default="sandbox")
+NEXORA_MPESA_CONSUMER_KEY = env("NEXORA_MPESA_CONSUMER_KEY", default="")
+NEXORA_MPESA_CONSUMER_SECRET = env("NEXORA_MPESA_CONSUMER_SECRET", default="")
+NEXORA_MPESA_PASSKEY = env("NEXORA_MPESA_PASSKEY", default="")
+
 MPESA_CALLBACK_ALLOWED_IPS = env.list("MPESA_CALLBACK_ALLOWED_IPS", default=[])
 MPESA_TIMEOUT_SECONDS = env.int("MPESA_TIMEOUT_SECONDS", default=20)
 STATEMENT_IMPORT_MAX_ROWS = env.int("STATEMENT_IMPORT_MAX_ROWS", default=5000)

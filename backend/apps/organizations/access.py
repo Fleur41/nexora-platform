@@ -79,6 +79,17 @@ class OrganizationPermission(permissions.BasePermission):
             raise exceptions.PermissionDenied(
                 detail="Your role does not allow this action.", code="missing_capability"
             )
+        if request.method not in permissions.SAFE_METHODS and not getattr(
+            view, "allowed_when_read_only", False
+        ):
+            from apps.subscriptions.services import is_read_only
+
+            if is_read_only(membership.organization):
+                raise exceptions.PermissionDenied(
+                    detail="Your Nexora subscription has lapsed, so Nexora is read-only. "
+                    "Pay the open invoice under Organization → Subscription to make changes.",
+                    code="subscription_lapsed",
+                )
         return True
 
 
