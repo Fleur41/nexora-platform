@@ -129,6 +129,8 @@ npm run lint && npm run typecheck && npm test && npm run build
 # Browser end-to-end tests: start Django (:8000) and Next.js (:3000) first
 npx playwright install chromium            # once
 npm run test:e2e
+npm run test:e2e:headed                    # QA: visible browser, one spec at a time, slowed down
+E2E_SLOW_MO=0 npm run test:e2e:headed -- e2e/operations-flow.spec.ts   # one spec, full speed
 ```
 
 CI (`.github/workflows/ci.yml`) runs the same checks plus `manage.py check --deploy`.
