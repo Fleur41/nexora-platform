@@ -159,6 +159,7 @@ def _notify_invoice(invoice: Invoice) -> None:
         f"{currency} {invoice.total:,.2f} is due on {invoice.due_date:%d %b %Y}.",
         tenant_link=f"/portal/invoices/{invoice.pk}",
         dedupe_key=f"invoice:{invoice.pk}",
+        attachment=f"invoice:{invoice.pk}",
     )
 
 

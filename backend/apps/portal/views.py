@@ -339,6 +339,21 @@ class InvoiceDetailView(PortalView):
         return Response({**InvoiceOut(invoice).data, "lines": LineOut(lines, many=True).data})
 
 
+class InvoicePdfView(PortalView):
+    @extend_schema(responses={(200, "application/pdf"): bytes})
+    def get(self, request, tenant_id, invoice_id):
+        from apps.billing.pdf import invoice_filename, invoice_pdf
+        from apps.core.pdf import pdf_response
+
+        tenant = tenancy(request, tenant_id)
+        invoice = get_object_or_404(
+            Invoice.objects.select_related("organization", "lease", "tenant", "unit__property"),
+            pk=invoice_id,
+            tenant=tenant,
+        )
+        return pdf_response(invoice_pdf(invoice), invoice_filename(invoice))
+
+
 class PaymentsView(PortalView):
     @extend_schema(responses=PaymentOut(many=True))
     def get(self, request, tenant_id):
@@ -374,6 +389,22 @@ class ReceiptView(PortalView):
                 },
             }
         )
+
+
+class ReceiptPdfView(PortalView):
+    @extend_schema(responses={(200, "application/pdf"): bytes})
+    def get(self, request, tenant_id, payment_id):
+        from apps.core.pdf import pdf_response
+        from apps.payments.pdf import receipt_filename, receipt_pdf
+
+        tenant = tenancy(request, tenant_id)
+        payment = get_object_or_404(
+            Payment.objects.select_related("organization", "tenant", "lease__unit__property"),
+            pk=payment_id,
+            tenant=tenant,
+            lease__isnull=False,
+        )
+        return pdf_response(receipt_pdf(payment), receipt_filename(payment))
 
 
 class StatementView(PortalView):

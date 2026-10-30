@@ -9,6 +9,7 @@ commits (Celery; inline in development).
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Iterable
 
 from django.db import IntegrityError, transaction
@@ -18,6 +19,8 @@ from apps.organizations.models import Membership
 
 from .models import Notification, NotificationSettings
 from .providers import DeliveryError, send_email, sms_backend
+
+logger = logging.getLogger(__name__)
 
 Channel = Notification.Channel
 SMS_MAX = 300
@@ -64,10 +67,11 @@ def notify(
     tenants: Iterable = (),
     email: bool = True,
     sms: bool = False,
+    attachment: str = "",
 ) -> list[Notification]:
     """Queue a message. Staff users get in-app (+ email); tenants get in-app if they have a
     portal account, plus email/SMS when enabled for the organization and the tenant has the
-    contact details."""
+    contact details. `attachment` (e.g. "invoice:<id>") is added to tenant emails as a PDF."""
     prefs = settings_for(organization) if organization else None
     created: list[Notification] = []
     common = {
@@ -128,6 +132,7 @@ def notify(
                     to_address=tenant.email,
                     body=body,
                     link=tenant_link,
+                    attachment=attachment,
                     **common,
                 )
             )
@@ -160,7 +165,10 @@ def deliver(notification: Notification) -> Notification:
     try:
         if notification.channel == Channel.EMAIL:
             org = notification.organization.name if notification.organization else "Nexora"
-            send_email(notification.to_address, f"{notification.title} · {org}", notification.body)
+            attachments, body = _attachments(notification), notification.body
+            if attachments:
+                body += "\n\nAttached: " + ", ".join(name for name, _, _ in attachments)
+            send_email(notification.to_address, f"{notification.title} · {org}", body, attachments)
         elif notification.channel == Channel.SMS:
             sms_backend().send(notification.to_address, notification.body)
         notification.status, notification.sent_at, notification.error = (
@@ -174,6 +182,20 @@ def deliver(notification: Notification) -> Notification:
             notification.status = Notification.Status.FAILED
     notification.save(update_fields=["status", "sent_at", "error", "attempts", "updated_at"])
     return notification
+
+
+def _attachments(notification: Notification) -> list[tuple[str, bytes, str]]:
+    """Render the email's PDF. If that fails, the email still goes out without it."""
+    if not notification.attachment:
+        return []
+    from .attachments import render_attachment
+
+    try:
+        rendered = render_attachment(notification.attachment)
+    except Exception:  # noqa: BLE001 - a broken PDF must not stop the email itself
+        logger.exception("Could not render attachment %s", notification.attachment)
+        return []
+    return [rendered] if rendered else []
 
 
 def send_announcement(*, request, announcement, properties) -> list[Notification]:

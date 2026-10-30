@@ -10,6 +10,7 @@ import { useOrganization } from "@/components/providers/organization-provider";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { PdfDownloadButton } from "@/components/ui/pdf-download-button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Dialog,
@@ -93,6 +94,7 @@ export function PaymentDetail() {
               </Link>
             </Button>
           )}
+          {p.is_matched && <PdfDownloadButton path={`/payments/${p.id}/pdf/`} filename={`${p.receipt_number}.pdf`}>Receipt PDF</PdfDownloadButton>}
           {live && credit > 0 && can("payments.record") && (
             <Button
               variant="outline"

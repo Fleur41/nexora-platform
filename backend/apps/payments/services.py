@@ -205,6 +205,7 @@ def _notify_receipt(payment: Payment) -> None:
         f"on {payment.received_on:%d %b %Y}. Receipt {payment.receipt_number}.",
         tenant_link=f"/portal/payments/{payment.pk}",
         dedupe_key=f"receipt:{payment.pk}",
+        attachment=f"receipt:{payment.pk}",
     )
 
 

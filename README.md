@@ -222,6 +222,8 @@ CI (`.github/workflows/ci.yml`) runs the same checks plus `manage.py check --dep
    move-ins and rent changes. **Post invoices**. Run the same month again: "Nothing new to bill".
 3. Open an invoice: **Credit** part of it (a reason is required), or **Void** it if nothing has
    been credited against it. Both appear in the tenant's statement and the audit log.
+   **Download PDF** gives the invoice as a document, with how to pay; the same PDF is attached
+   to the tenant's invoice email.
 4. **Utilities**: add a water meter to a unit, record a baseline reading, then a later one. With a
    metered water rule (e.g. 150 per m³), the next billing run bills the usage exactly once.
 5. **Billing → Shared costs**: enter a property-wide bill. It's split to the cent between occupied
@@ -236,7 +238,8 @@ CI (`.github/workflows/ci.yml`) runs the same checks plus `manage.py check --dep
    property can have its own methods, which replace the organization-wide ones for its tenants.
 2. On a lease: **Record payment** (partial or full). It's applied to the oldest invoices first;
    any extra becomes credit and is used automatically when the next invoices are generated.
-   Open **Payments → RCT-…** → **Receipt** to print or save a PDF.
+   Open **Payments → RCT-…** → **Receipt PDF** to download the receipt (also attached to the
+   tenant's receipt email), or **Receipt** to print it.
 3. **Payments → Bank imports**: upload a CSV statement. Lines mentioning a lease number are
    applied automatically; others appear under **Unmatched** to match by hand. Re-importing the
    same file adds nothing.
@@ -354,9 +357,11 @@ the **Balance** is **Ksh 47,000**. **Tenant app:** **Home** shows *You owe Ksh 4
    **Ksh 17,000**.
 3. **Payments → RCT-00001 → Receipt**.
    **Check:** a printable receipt for Wanjiku Kamau showing *Account balance now: Ksh 17,000*.
+   **Download PDF** saves `RCT-00001.pdf`; the receipt email in Mailpit has the same PDF attached.
 
 **Check (Tenant app):** **Home** shows *You owe Ksh 17,000* and **Deposit held Ksh 22,000**.
-**Bills → Receipts → RCT-00001** shows the 30,000 receipt. **Pay** shows how to pay the rest.
+**Bills → Receipts → RCT-00001** shows the 30,000 receipt, with **Download PDF**. **Pay** shows
+how to pay the rest.
 
 ### 7. Announcement
 
