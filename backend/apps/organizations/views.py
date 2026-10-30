@@ -40,7 +40,20 @@ class OrganizationListCreateView(APIView):
 
     @extend_schema(responses=MyOrganizationSerializer(many=True))
     def get(self, request):
-        return Response(MyOrganizationSerializer(_my_memberships(request.user), many=True).data)
+        memberships = list(_my_memberships(request.user))
+        if request.user.is_platform_admin:
+            from apps.platform_admin.models import SupportGrant
+            from apps.platform_admin.support import support_membership
+
+            member_of = {m.organization_id for m in memberships}
+            memberships += [
+                support_membership(grant)
+                for grant in SupportGrant.objects.active()
+                .select_related("organization", "user")
+                .filter(user=request.user, organization__status=Organization.Status.ACTIVE)
+                if grant.organization_id not in member_of
+            ]
+        return Response(MyOrganizationSerializer(memberships, many=True).data)
 
     @extend_schema(request=OrganizationSerializer, responses={201: MyOrganizationSerializer})
     def post(self, request):

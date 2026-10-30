@@ -3,14 +3,13 @@ from __future__ import annotations
 from typing import Any
 
 from apps.core.middleware import get_request_id
+from apps.core.net import client_ip
 
 from .models import AuditLog
 
 
 def _client_ip(request) -> str | None:
-    # REMOTE_ADDR is set by the trusted reverse proxy / WSGI server. X-Forwarded-For is
-    # not trusted here because clients can forge it.
-    return request.META.get("REMOTE_ADDR") or None
+    return client_ip(request) if hasattr(request, "META") else None
 
 
 def record_event(

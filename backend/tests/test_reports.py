@@ -277,3 +277,38 @@ def test_report_list_marks_cost_report_unavailable_without_cost_access(make_memb
     res = client.get("/api/v1/reports/maintenance-costs/")
     assert res.status_code == 403
     assert "Maintenance costs" not in summary(report(client, "financial-summary"))
+
+
+def test_exports_never_turn_user_text_into_formulas():
+    import io
+
+    from openpyxl import load_workbook
+
+    from apps.reports import exporters
+
+    report = {
+        "organization": "=cmd|'/C calc'!A0",
+        "title": "Rent roll",
+        "period": {"label": "October 2026"},
+        "property": None,
+        "currency": "KES",
+        "summary": [],
+        "sections": [
+            {
+                "title": "Units",
+                "columns": [
+                    {"key": "tenant", "label": "Tenant", "kind": "text"},
+                    {"key": "balance", "label": "Balance", "kind": "money"},
+                ],
+                "rows": [{"tenant": '=HYPERLINK("http://evil.example","x")', "balance": "-500"}],
+            }
+        ],
+    }
+    csv_text = exporters.to_csv(report).decode("utf-8-sig")
+    assert "'=HYPERLINK" in csv_text and "'=cmd" in csv_text
+    assert ",-500" in csv_text  # numbers keep their sign
+    wb = load_workbook(io.BytesIO(exporters.to_xlsx(report)))
+    assert wb["Summary"]["A1"].data_type == "s"
+    cell = wb["Units"]["A2"]
+    assert cell.data_type == "s" and cell.value.startswith("=HYPERLINK")
+    assert wb["Units"]["B2"].value == -500

@@ -35,7 +35,9 @@ services:
       - "1025:1025"
 
   backend:
-    build: ./backend
+    build:
+      context: ./backend
+      args: { REQUIREMENTS: requirements-dev.txt }
     command: >
       sh -c "python manage.py migrate --noinput &&
              python manage.py runserver 0.0.0.0:8000"
@@ -58,7 +60,9 @@ services:
         condition: service_healthy
 
   worker:
-    build: ./backend
+    build:
+      context: ./backend
+      args: { REQUIREMENTS: requirements-dev.txt }
     command: celery -A config worker -l info
     env_file: ./backend/.env
     environment:
@@ -78,7 +82,9 @@ services:
 
   # Scheduled jobs (e.g. hourly occupancy sync). Run exactly one beat process.
   beat:
-    build: ./backend
+    build:
+      context: ./backend
+      args: { REQUIREMENTS: requirements-dev.txt }
     command: celery -A config beat -l info --schedule /tmp/celerybeat-schedule
     env_file: ./backend/.env
     environment:
@@ -97,7 +103,9 @@ services:
         condition: service_healthy
 
   frontend:
-    build: ./frontend
+    build:
+      context: ./frontend
+      target: dev
     command: npm run dev
     environment:
       NEXORA_API_ORIGIN: http://backend:8000

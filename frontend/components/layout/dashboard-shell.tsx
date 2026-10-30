@@ -20,6 +20,7 @@ import type { User } from "@/types/api";
 import { AuthGate, FullPageSkeleton } from "./auth-gate";
 import { NotificationBell } from "./notification-bell";
 import { OrganizationSwitcher } from "./organization-switcher";
+import { StatusBanner } from "./status-banner";
 import { UserMenu } from "./user-menu";
 
 export function DashboardShell({ children }: { children: React.ReactNode }) {
@@ -45,8 +46,8 @@ function OrganizationGate({ user, children }: { user: User; children: React.Reac
   const tenancies = useTenancies(noOrganizations);
   React.useEffect(() => {
     if (!noOrganizations || !tenancies.data) return;
-    router.replace(tenancies.data.length > 0 ? "/portal" : "/onboarding");
-  }, [noOrganizations, tenancies.data, router]);
+    router.replace(tenancies.data.length > 0 ? "/portal" : user.is_platform_admin ? "/platform" : "/onboarding");
+  }, [noOrganizations, tenancies.data, router, user.is_platform_admin]);
 
 
   const handleSwitch = React.useCallback(
@@ -123,7 +124,8 @@ function ShellLayout({ user, children }: { user: User; children: React.ReactNode
           <NotificationBell timeZone={current.organization.timezone} showOrganization={organizations.length > 1} />
           <UserMenu user={user} />
         </header>
-        <main className="flex-1 px-4 py-6 sm:px-6 lg:px-8">{children}</main>
+        <StatusBanner />
+        <main id="main" tabIndex={-1} className="outline-none flex-1 px-4 py-6 sm:px-6 lg:px-8">{children}</main>
       </div>
     </div>
   );

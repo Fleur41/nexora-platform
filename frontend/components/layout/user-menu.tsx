@@ -1,6 +1,6 @@
 "use client";
 
-import { Home, LogOut, UserRound } from "lucide-react";
+import { Home, LogOut, ShieldCheck, UserRound } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -44,6 +44,13 @@ export function UserMenu({ user }: { user: User }) {
           <DropdownMenuItem asChild>
             <Link href="/portal">
               <Home /> My tenant portal
+            </Link>
+          </DropdownMenuItem>
+        )}
+        {user.is_platform_admin && (
+          <DropdownMenuItem asChild>
+            <Link href="/platform">
+              <ShieldCheck /> Platform console
             </Link>
           </DropdownMenuItem>
         )}

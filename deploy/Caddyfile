@@ -1,0 +1,35 @@
+{
+	email {$ACME_EMAIL}
+}
+
+{$NEXORA_DOMAIN} {
+	encode zstd gzip
+
+	# HSTS for the whole site; Django adds its own security headers to API responses.
+	header Strict-Transport-Security "max-age=31536000; includeSubDomains"
+	header -Server
+
+	# Uploads are capped at 10 MB by Django; leave headroom for multipart overhead.
+	request_body {
+		max_size 12MB
+	}
+
+	handle /static/* {
+		root * /srv
+		file_server
+	}
+	# Django directly: Caddy replaces any client X-Forwarded-For with the real address
+	# (Django runs with NUM_PROXIES=1).
+	@django path /api/* /django-admin/*
+	handle @django {
+		reverse_proxy backend:8000
+	}
+	handle {
+		reverse_proxy frontend:3000
+	}
+
+	log {
+		output stdout
+		format console
+	}
+}

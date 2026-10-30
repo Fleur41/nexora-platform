@@ -15,7 +15,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState, ErrorState } from "@/components/ui/states";
 import { LeaseStatusBadge } from "@/components/ui/status";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useLeases } from "@/features/leases/api";
 import { usePropertyOptions } from "@/features/properties/api";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
@@ -75,7 +75,8 @@ export function LeasesPage() {
           <TabsTrigger value="all">All leases</TabsTrigger>
           <TabsTrigger value="expiring">Expiring in {EXPIRING_DAYS} days</TabsTrigger>
         </TabsList>
-      </Tabs>
+        {/* One panel for both tabs: the tab only changes the query. */}
+        <TabsContent value={view}>
       <div className="mb-4 flex flex-col gap-3 md:flex-row">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
@@ -163,6 +164,8 @@ export function LeasesPage() {
         </div>
       )}
       {leases.data && <Pagination page={page} pageSize={25} count={leases.data.count} onPageChange={setPage} />}
+        </TabsContent>
+      </Tabs>
     </>
   );
 }

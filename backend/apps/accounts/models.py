@@ -36,7 +36,9 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     Users hold no organization data themselves; access to organizations comes only
     from Membership rows. `is_platform_admin` grants the platform console but does
-    NOT grant access to any organization's private records.
+    NOT grant access to any organization's private records; the one exception is a
+    support session (platform_admin.SupportGrant): started with a reason, read-only,
+    time-limited, announced to the owners and audited request by request.
     """
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)

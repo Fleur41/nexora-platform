@@ -4,11 +4,14 @@ Nexora is a multi-tenant, all-in-one business management platform. Property mana
 first business module; the shared platform layer (accounts, organizations, roles, audit) is built
 so future modules such as POS, inventory and finance can plug into it.
 
-> **Status: Phases 1–4 are complete**: the platform foundation; properties, units, tenants,
-> leases and occupancy; billing (charges, invoices, meters, shared costs, ledgers, deposits); and
-> payments (landlord payment methods, receipts, allocation, reconciliation, bank imports and an
-> M-Pesa Daraja integration; see [docs/mpesa.md](docs/mpesa.md) for activation). Maintenance,
-> notifications and reporting are **not built yet**. See
+> **Status: Phases 1–7 are complete.** Phases 1–4 built the platform foundation, then
+> properties, units, tenants, leases and occupancy, then billing and deposits, then payments
+> (M-Pesa Daraja, bank imports; see [docs/mpesa.md](docs/mpesa.md)). Phase 5 added operations
+> and the tenant app, and Phase 6 reports and public listings. Phase 7 added Nexora
+> subscriptions, the platform console and production readiness:
+> [security review](docs/security-review.md), [accessibility audit](docs/accessibility.md),
+> [deployment](docs/runbooks/deployment.md) and
+> [backup](docs/runbooks/backup-and-restore.md) runbooks. See
 > [docs/roadmap.md](docs/roadmap.md) for the phase checklist and known limitations.
 
 | Layer    | Stack                                                                          |
@@ -35,14 +38,24 @@ backend/                Django project (owns all business rules, auth and data a
   apps/utilities/       meters and readings
   apps/deposits/        security deposit ledger (a liability, never income)
   apps/payments/        payment methods, payments, allocation, receipts, M-Pesa, bank imports
+  apps/maintenance/     repair requests, quotes, messages
+  apps/inspections/     move-in, routine and move-out inspections
+  apps/notifications/   in-app and email notifications, announcements
+  apps/portal/          tenant app API (bills, payments, repairs, move-out notice)
+  apps/reports/         financial and occupancy reports, CSV/Excel/PDF exports
+  apps/listings/        public listings, enquiries and viewing requests
+  apps/subscriptions/   Nexora plans, trials, unit limits, invoices to organizations, read-only lapse
+  apps/platform_admin/  platform console API, audited time-limited support access
   tests/                API, permission and isolation tests
 frontend/               Next.js app; talks to Django only through lib/api/client.ts
-  app/                  routes: (public) landing, (auth) pages, onboarding, dashboard
+  app/                  routes: (public) landing, (auth) pages, onboarding, dashboard,
+                        portal (tenant app), platform (Nexora staff console)
   components/           ui primitives, layout shell, providers, brand
   features/             per-domain API hooks, schemas and components
   e2e/                  Playwright tests: page objects, smoke and regression suites
-docs/                   architecture and roadmap
-docker-compose.yml      Postgres, Redis, Mailpit, backend, Celery worker + beat, frontend
+docs/                   architecture, roadmap, security review, accessibility, runbooks, manual
+deploy/                 production compose stack, Caddy (TLS), backup/restore/release scripts
+docker-compose.yml      development: Postgres, Redis, Mailpit, backend, Celery worker + beat, frontend
 ```
 
 ## Running locally
@@ -137,6 +150,7 @@ It all goes through the normal services, so ledgers and audit logs are consisten
 | Accountant | demo-accountant@nexora.test | all properties; billing and payments, no corrections |
 | Caretaker | demo-caretaker@nexora.test | Ruaka Gardens only; units, tenants' contacts, meters |
 | Tenant | demo-tenant@nexora.test | the tenant app (`/portal`) for their own home |
+| Nexora staff | demo-platform@nexora.test | the platform console (`/platform`): every organization's plan and billing; their data only through a support session |
 
 Posted financial records can't be deleted (by design), so to start over, recreate the local
 database: `docker compose down -v && docker compose up -d db`, then migrate and seed again.
@@ -154,9 +168,11 @@ cd backend
 cd frontend
 npm run lint && npm run typecheck && npm test && npm run build
 
-# Browser end-to-end tests: start Django (:8000, sending email to Mailpit as above) and Next.js (:3000) first
+# Browser end-to-end tests: start Django (:8000, sending email to Mailpit as above) and Next.js (:3000) first.
+# The SaaS and accessibility tests sign in as Nexora staff; grant that once:
+#   cd backend && .venv/bin/python manage.py platform_admin e2e-platform@example.com --create --password Nexora-e2e-pass-2026
 npx playwright install chromium            # once
-npm run test:e2e                           # smoke tests, headless (CI)
+npm run test:e2e                           # smoke tests incl. accessibility (axe), headless (CI)
 npm run test:regression                    # QA: full sign-up → move-out journey, visible and slowed down
 ```
 
@@ -473,6 +489,51 @@ A listing comes down by itself once the unit is let, and goes back up if it beco
 while still published. A unit on notice can be listed too: it shows "available from" the day
 after the tenant moves out.
 
+## Subscriptions (what landlords pay Nexora)
+
+Every new organization gets a **30-day free trial** on the Growth plan. Plans are priced by
+how many units you manage. These are the starting prices; Nexora staff change them in the console:
+
+| Plan | Units | Per month |
+| ---- | ----- | --------- |
+| Starter | up to 20 | Ksh 2,000 |
+| Growth | up to 100 | Ksh 7,500 |
+| Pro | up to 500 | Ksh 25,000 |
+| Enterprise | unlimited | by agreement |
+
+**Sidebar → Subscription** (owners only) shows the plan, units used and Nexora's invoices, and
+lets you switch plan. Adding units beyond the plan's limit is refused with a prompt to upgrade.
+
+- A week before the trial (or the paid month) ends, Nexora issues an invoice and the owners are
+  notified. Pay with an **M-Pesa prompt** to your phone, or to Nexora's paybill or bank account
+  with your account number (`NX…`). Paybill and bank payments are recorded by Nexora staff.
+- When the invoice is unpaid after access ends, a banner says **payment overdue**. Everything
+  still works.
+- **14 days later, Nexora becomes read-only.** You can see and download everything, but can't
+  change anything until you pay. Tenants' records are never deleted.
+
+## Platform console (Nexora staff)
+
+`/platform` is for Nexora's own team (accounts with `is_platform_admin`). That can only be
+granted on the server, with `manage.py platform_admin EMAIL --create`. The console has:
+
+- **Organizations:** monthly recurring revenue, trials ending, overdue amounts; each
+  organization's plan, units and status.
+  - Change the plan.
+  - Extend a trial or the paid-until date. This lifts "overdue" or read-only immediately.
+  - Mark an organization complimentary.
+  - Issue an invoice now.
+  - Suspend it, for fraud or abuse.
+- **Invoices:** every Nexora invoice. **Record payment** for paybill and bank transfers, or void
+  an invoice.
+- **Plans:** prices, unit limits, which plans are offered.
+- **Support access.** Staff can't see an organization's data by default. To help a customer:
+  1. Open the organization, enter a reason (e.g. the ticket number) and a duration (15 minutes
+     to 4 hours), then **Start support session**. The owners are notified with the reason.
+  2. **Open their dashboard** shows exactly what an owner sees, **read-only**, with a banner.
+     Every page opened is recorded in the organization's audit log.
+  3. The session ends when time runs out, or with **End session**.
+
 ## Tenant app
 
 Tenants get their own app at `/portal`. It works in any phone browser and installs to the home
@@ -531,12 +592,27 @@ the phone layout on a computer, use the browser's device toolbar (Chrome: ⌥⌘
 - Provider secrets (Daraja consumer secret, passkey) are encrypted at rest with
   `NEXORA_FIELD_ENCRYPTION_KEY` and are never returned by the API. Callback URLs carry a
   per-configuration secret; every callback is stored and processed at most once per transaction.
-- Platform administrators get **no** implicit access to organization data.
+- Platform administrators get **no** implicit access to organization data. They can open a
+  **support session**: read-only, 15 minutes to 4 hours, with a reason, owners notified, and
+  every request audited. Staff sessions expire after 8 hours.
+- Organizations whose subscription has lapsed become read-only (enforced on every request),
+  never deleted.
+- Report exports neutralise spreadsheet formulas in user-entered text. The web app sends a
+  strict Content-Security-Policy. Client IPs trust only the configured number of proxies.
 - Audit log entries are append-only (model, queryset and admin all refuse updates and deletes).
 - Login, registration, password reset and invitation endpoints are rate-limited and CSRF-protected,
   and they don't reveal whether an email address is registered.
 
-Details are in [docs/architecture.md](docs/architecture.md).
+Details are in [docs/architecture.md](docs/architecture.md). The Phase 7 review, with findings
+and residual risks, is in [docs/security-review.md](docs/security-review.md).
+
+## Production
+
+[docs/runbooks/deployment.md](docs/runbooks/deployment.md) covers one server with Docker
+Compose and Caddy (automatic HTTPS): setup, secrets, releases, rollback, configuration and
+troubleshooting. [docs/runbooks/backup-and-restore.md](docs/runbooks/backup-and-restore.md)
+covers nightly encrypted backups with an off-site copy, monthly restore drills, and recovery
+onto the same or a new server.
 
 ## Network note (this development machine)
 

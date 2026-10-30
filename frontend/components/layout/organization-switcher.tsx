@@ -25,7 +25,7 @@ export function OrganizationSwitcher() {
         <span className="min-w-0 flex-1">
           <span className="block truncate text-sm font-medium">{current.organization.name}</span>
           <span className="block truncate text-xs text-sidebar-foreground">
-            {ROLE_LABELS[current.role]}
+            {current.support_until ? "Nexora support (read-only)" : ROLE_LABELS[current.role]}
           </span>
         </span>
         <ChevronsUpDown className="size-4 shrink-0 text-sidebar-foreground" aria-hidden />
@@ -40,7 +40,7 @@ export function OrganizationSwitcher() {
           >
             <span className="min-w-0 flex-1">
               <span className="block truncate">{o.organization.name}</span>
-              <span className="block text-xs text-muted-foreground">{ROLE_LABELS[o.role]}</span>
+              <span className="block text-xs text-muted-foreground">{o.support_until ? "Nexora support (read-only)" : ROLE_LABELS[o.role]}</span>
             </span>
             {o.organization.id === current.organization.id && <Check aria-label="Active" />}
           </DropdownMenuItem>

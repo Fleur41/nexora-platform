@@ -1,4 +1,5 @@
 import {
+  BadgeCheck,
   Building2,
   ClipboardCheck,
   LogOut,
@@ -60,6 +61,12 @@ export const DASHBOARD_NAV: NavItem[] = [
     label: "Organization",
     icon: Building2,
     capability: "organization.manage",
+  },
+  {
+    href: "/dashboard/settings/subscription",
+    label: "Subscription",
+    icon: BadgeCheck,
+    capability: "subscription.manage",
   },
   { href: "/dashboard/account", label: "My account", icon: Settings },
 ];

@@ -38,6 +38,8 @@ export interface MyOrganization {
   role: Role;
   access_scope: AccessScope;
   capabilities: string[];
+  /** Set when this is Nexora support access (read-only, time-limited), not a membership. */
+  support_until: string | null;
 }
 
 export interface Membership {
@@ -1138,4 +1140,96 @@ export interface Enquiry {
   handled_by_name: string | null;
   created_at: string;
   updated_at: string;
+}
+
+// --- Nexora subscription ---------------------------------------------------------------------
+
+export interface Plan {
+  id: UUID;
+  code: string;
+  name: string;
+  description: string;
+  max_units: number | null;
+  monthly_price: Money;
+  currency: string;
+  is_active: boolean;
+  sort_order: number;
+}
+
+export type SubscriptionStatus = "trialing" | "active" | "past_due" | "lapsed" | "cancelled";
+
+export interface SubscriptionInvoice {
+  id: UUID;
+  number: string;
+  plan_name: string;
+  period_start: string;
+  period_end: string;
+  amount: Money;
+  currency: string;
+  due_date: string;
+  status: "open" | "paid" | "void";
+  paid_at: string | null;
+  payment_method: "" | "mpesa" | "bank" | "other";
+  payment_reference: string;
+  created_at: string;
+}
+
+export interface SubscriptionSummary {
+  plan: Plan;
+  status: SubscriptionStatus;
+  trial_ends_on: string | null;
+  paid_until: string | null;
+  access_ends_on: string | null;
+  complimentary: boolean;
+  account_code: string;
+  read_only: boolean;
+  days_left: number | null;
+  can_manage: boolean;
+  // For members who can manage the subscription:
+  units_used?: number;
+  plans?: Plan[];
+  open_invoice?: SubscriptionInvoice | null;
+  payment?: { paybill: string; account: string; bank_name: string; bank_account: string; stk_available: boolean };
+}
+
+// --- Platform console ------------------------------------------------------------------------
+
+export interface PlatformOrganization {
+  id: UUID;
+  name: string;
+  slug: string;
+  status: "active" | "suspended";
+  email: string;
+  phone: string;
+  created_at: string;
+  units: number;
+  members: number;
+  plan: string | null;
+  plan_code: string | null;
+  unit_limit: number | null;
+  subscription_status: SubscriptionStatus | null;
+  trial_ends_on: string | null;
+  paid_until: string | null;
+  complimentary: boolean;
+  account_code: string | null;
+}
+
+export interface PlatformOrganizationDetail extends PlatformOrganization {
+  notes: string;
+  owners: { name: string; email: string }[];
+  invoices: SubscriptionInvoice[];
+  support_grants: { id: UUID; user: string; reason: string; created_at: string; expires_at: string; ended_at: string | null; active: boolean; mine: boolean }[];
+  recent_activity: { action: string; actor: string; created_at: string }[];
+}
+
+export interface PlatformOverview {
+  organizations: number;
+  suspended: number;
+  subscriptions: Record<SubscriptionStatus, number>;
+  units: number;
+  monthly_recurring_revenue: Money;
+  open_invoices: number;
+  open_amount: Money;
+  overdue_amount: Money;
+  trials_ending_7_days: number;
 }

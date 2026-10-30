@@ -432,6 +432,7 @@ test("capture the manual's screenshots", async ({ app, tenantApp, page }) => {
     ["Team", "tab-team"],
     ["Audit log", "tab-audit-log"],
     ["Organization", "tab-organization"],
+    ["Subscription", "tab-subscription"],
     ["My account", "tab-my-account"],
   ];
   for (const [label, name, prepare] of tour) {

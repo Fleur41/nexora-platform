@@ -149,9 +149,32 @@ enquiries and viewing requests.
 - [x] Sample data: published listings and enquiries; the manual covers Reports and Listings
 - [x] Tests: 207 backend, 37 frontend unit, Playwright 9 smoke + regression journey
 
-## Phase 7 — SaaS and production readiness
+## Phase 7 — SaaS and production readiness ✅ complete
 Subscription plans and limits, platform administration console with audited, time-limited
 support access, security review, accessibility audit, deployment and backup runbooks.
+
+- [x] Plans priced per unit in tiers (Starter, Growth, Pro, Enterprise by agreement), editable
+      by staff; 30-day free trial for every new organization; unit limits enforced when adding
+      units; plan changes re-price an unpaid invoice; downgrades below current usage refused
+- [x] Nexora invoices: issued a week before access ends; M-Pesa prompt through Nexora's paybill
+      (secret callback URL, IP allowlist, amount check) or paybill/bank recorded by staff;
+      overdue banner, then read-only after 14 days' grace (enforced centrally, never deletes)
+- [x] Owners' Subscription page and status banner (trial ending, overdue, read-only)
+- [x] Platform console (`/platform`): overview and MRR, organizations, subscription controls,
+      invoices (record payment, void, issue), plans, suspend and reactivate
+- [x] Support access: reason, 15–240 minutes, owners notified, read-only stand-in membership,
+      every request audited, ended early or by expiry; `manage.py platform_admin` is the only
+      way to grant console access
+- [x] Security review ([docs/security-review.md](security-review.md)): subscription callback
+      secured, trusted-proxy client IPs (throttle bypass fixed), spreadsheet formula injection
+      fixed, vulnerable DRF/cryptography upgraded, CSP, short staff sessions, production images
+- [x] Accessibility audit ([docs/accessibility.md](accessibility.md)): WCAG 2.1 AA on 43
+      screens; contrast, names, tabs, chart semantics, skip link, reduced motion; axe in CI
+- [x] Production stack (`deploy/`): Compose + Caddy TLS, standalone Next.js image, non-root
+      runtime-only images; runbooks for deployment and backup/restore, with encrypted off-site
+      backups and a restore drill, all tested end to end on a local copy
+- [x] Tests: 229 backend, 37 frontend unit, Playwright 11 smoke (incl. SaaS flow and
+      accessibility) + regression journey
 
 ## Known limitations (current)
 
@@ -174,7 +197,9 @@ support access, security review, accessibility audit, deployment and backup runb
   publish step for chosen photos.
 - Lists used in pickers (properties, tenants in the lease form) load the first 50–100 records
   plus server-side search. Very large portfolios will want typeahead pickers.
-- No platform admin console or subscriptions yet (Phases 6–7).
+- No second factor (TOTP/passkeys) for sign-in yet; recommended first for platform admins.
+- Subscription prices in the seed are placeholders; set real prices in the console before launch.
+- The production stack is a single server (no hot standby); see the backup runbook for recovery.
 - The tenant app is a web app installed to the home screen, not an App Store / Play Store app.
   Push notifications are not enabled yet; tenants see notifications in the app and by email.
 - The tenant app works online only. Offline, it shows an offline page: nothing from the account is

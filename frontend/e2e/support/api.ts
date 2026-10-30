@@ -1,6 +1,15 @@
 import { expect, type Page } from "@playwright/test";
 
 /**
+ * Origin and Referer of the page's site. Over HTTPS, Django's CSRF check also requires them;
+ * browsers send them, API requests made by tests don't.
+ */
+export function sameOrigin(page: Page): Record<string, string> {
+  const origin = new URL(page.url()).origin;
+  return origin.startsWith("http") ? { Origin: origin, Referer: `${origin}/` } : {};
+}
+
+/**
  * Fast setup through the same API the UI uses, with the page's session cookie and CSRF
  * token. Use it for data a test needs but isn't about; drive the feature under test via the UI.
  */
@@ -15,7 +24,7 @@ export class Api {
     const res = await this.page.request.fetch(`/api/v1${path}`, {
       method,
       data: body,
-      headers: { "X-CSRFToken": csrf, ...(this.orgId ? { "X-Organization-ID": this.orgId } : {}) },
+      headers: this.headers(csrf),
     });
     expect(res.ok(), `${method} ${path}: ${await res.text()}`).toBeTruthy();
     return (await res.json()) as T;
@@ -28,10 +37,14 @@ export class Api {
     const res = await this.page.request.fetch(`/api/v1${path}`, {
       method: "POST",
       multipart: { ...fields, file },
-      headers: { "X-CSRFToken": csrf, ...(this.orgId ? { "X-Organization-ID": this.orgId } : {}) },
+      headers: this.headers(csrf),
     });
     expect(res.ok(), `POST ${path}: ${await res.text()}`).toBeTruthy();
     return (await res.json()) as T;
+  }
+
+  private headers(csrf: string): Record<string, string> {
+    return { ...sameOrigin(this.page), "X-CSRFToken": csrf, ...(this.orgId ? { "X-Organization-ID": this.orgId } : {}) };
   }
 
   get = <T>(path: string) => this.call<T>("GET", path);

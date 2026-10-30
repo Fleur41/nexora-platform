@@ -1,5 +1,7 @@
 import { expect, test } from "@playwright/test";
 
+import { sameOrigin } from "../support/api";
+
 // Regression: on a fresh browser (no remembered organization) the dashboard's first requests
 // went out without X-Organization-ID, so every widget showed an error or zeros.
 test("first sign-in on a new browser loads organization data", async ({ page }) => {
@@ -10,13 +12,13 @@ test("first sign-in on a new browser loads organization data", async ({ page }) 
   await page.request.get("/api/v1/auth/csrf/");
   await page.request.post("/api/v1/auth/register/", {
     data: { full_name: "First Login", email, password: "Nexora-e2e-pass-2026" },
-    headers: { "X-CSRFToken": await csrf() },
+    headers: { ...sameOrigin(page), "X-CSRFToken": await csrf() },
   });
   await page.request.post("/api/v1/organizations/", {
     data: { name: `Fresh Org ${unique}` },
-    headers: { "X-CSRFToken": await csrf() },
+    headers: { ...sameOrigin(page), "X-CSRFToken": await csrf() },
   });
-  await page.request.post("/api/v1/auth/logout/", { headers: { "X-CSRFToken": await csrf() } });
+  await page.request.post("/api/v1/auth/logout/", { headers: { ...sameOrigin(page), "X-CSRFToken": await csrf() } });
   await page.evaluate(() => localStorage.clear());
 
   await page.goto("/login");

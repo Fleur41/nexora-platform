@@ -1,0 +1,108 @@
+# Production stack on one server. See docs/runbooks/deployment.md.
+#
+#   cd deploy && cp env.example .env   # fill it in
+#   docker compose -f docker-compose.prod.yml up -d --build
+#
+# Caddy terminates TLS (Let's Encrypt) and routes /api, /django-admin and /static to Django,
+# everything else to Next.js. Only Caddy publishes ports.
+name: nexora-prod
+
+x-django: &django
+  build: { context: ../backend }
+  image: nexora-backend:${NEXORA_VERSION:-latest}
+  env_file: .env
+  environment: &django-env
+    DJANGO_SETTINGS_MODULE: config.settings.prod
+    DATABASE_URL: postgres://nexora:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in deploy/.env}@db:5432/nexora
+    REDIS_URL: redis://redis:6379/0
+    CELERY_TASK_ALWAYS_EAGER: "false"
+    PRIVATE_MEDIA_ROOT: /data/private_media
+    # Exactly one proxy (Caddy) sits in front of Django.
+    NUM_PROXIES: "1"
+  volumes:
+    - private_media:/data/private_media
+  restart: unless-stopped
+  depends_on:
+    db: { condition: service_healthy }
+    redis: { condition: service_healthy }
+
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: nexora
+      POSTGRES_USER: nexora
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in deploy/.env}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nexora -d nexora"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  backend:
+    <<: *django
+    volumes:
+      - private_media:/data/private_media
+      - static:/app/staticfiles
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import os,urllib.request as u; u.urlopen(u.Request('http://127.0.0.1:8000/api/v1/health/', headers={'Host': os.environ['NEXORA_DOMAIN']}), timeout=5)"
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  worker:
+    <<: *django
+    command: ["celery", "-A", "config", "worker", "-l", "info", "--concurrency", "2"]
+
+  # Scheduled jobs (billing, subscription lifecycle, reminders). Exactly one.
+  beat:
+    <<: *django
+    command: ["celery", "-A", "config", "beat", "-l", "info", "--schedule", "/tmp/celerybeat-schedule"]
+
+  frontend:
+    build:
+      context: ../frontend
+      target: prod
+      args:
+        NEXORA_API_ORIGIN: http://backend:8000
+    image: nexora-frontend:${NEXORA_VERSION:-latest}
+    restart: unless-stopped
+    depends_on: [backend]
+
+  caddy:
+    image: caddy:2-alpine
+    ports: ["80:80", "443:443", "443:443/udp"]
+    environment:
+      NEXORA_DOMAIN: ${NEXORA_DOMAIN:?set NEXORA_DOMAIN in deploy/.env}
+      ACME_EMAIL: ${ACME_EMAIL:?set ACME_EMAIL in deploy/.env}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - static:/srv/static:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    restart: unless-stopped
+    depends_on: [backend, frontend]
+
+volumes:
+  pgdata:
+  private_media:
+  static:
+  caddy_data:
+  caddy_config:

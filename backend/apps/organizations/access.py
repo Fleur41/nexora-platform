@@ -39,6 +39,11 @@ def resolve_membership(request) -> Membership:
         .first()
     )
     if membership is None:
+        # Nexora support staff with an active, time-limited grant get a read-only stand-in.
+        from apps.platform_admin.support import active_support_membership
+
+        membership = active_support_membership(request.user, organization_id)
+    if membership is None:
         raise exceptions.PermissionDenied(
             detail="You do not have access to this organization.", code="not_a_member"
         )
@@ -74,11 +79,36 @@ class OrganizationPermission(permissions.BasePermission):
         required = getattr(view, "required_capabilities", {})
         if action not in required:
             raise exceptions.PermissionDenied(code="action_not_allowed")
+        if getattr(membership, "is_support", False):
+            if request.method not in permissions.SAFE_METHODS:
+                raise exceptions.PermissionDenied(
+                    detail="Nexora support access is read-only.", code="support_read_only"
+                )
+            from apps.audit.services import record_event
+
+            # Every request made under support access is in the organization's audit log.
+            record_event(
+                request,
+                "support.request",
+                organization=membership.organization,
+                metadata={"method": request.method, "path": request.path[:200]},
+            )
         capability = required[action]
         if capability is not None and not membership.has_capability(capability):
             raise exceptions.PermissionDenied(
                 detail="Your role does not allow this action.", code="missing_capability"
             )
+        if request.method not in permissions.SAFE_METHODS and not getattr(
+            view, "allowed_when_read_only", False
+        ):
+            from apps.subscriptions.services import is_read_only
+
+            if is_read_only(membership.organization):
+                raise exceptions.PermissionDenied(
+                    detail="Your Nexora subscription has lapsed, so Nexora is read-only. "
+                    "Pay the open invoice under Organization → Subscription to make changes.",
+                    code="subscription_lapsed",
+                )
         return True
 
 

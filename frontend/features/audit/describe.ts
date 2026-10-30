@@ -72,6 +72,17 @@ const LABELS: Record<string, string> = {
   "payment_settings.credentials_saved": "M-Pesa credentials saved",
   "payment_settings.connection_tested": "M-Pesa connection tested",
   "payment_settings.c2b_registered": "M-Pesa callback URLs registered",
+  "subscription.invoiced": "Nexora invoice issued",
+  "subscription.paid": "Nexora invoice paid",
+  "subscription.plan_changed": "Nexora plan changed",
+  "subscription.stk_requested": "Nexora M-Pesa payment requested",
+  "support.started": "Nexora support session started",
+  "support.ended": "Nexora support session ended",
+  "support.request": "Nexora support viewed",
+  "platform.subscription_updated": "Subscription updated by Nexora",
+  "platform.organization_suspended": "Organization suspended by Nexora",
+  "platform.organization_reactivated": "Organization reactivated by Nexora",
+  "platform.invoice_voided": "Nexora invoice voided",
 };
 
 export function describeAction(entry: AuditLogEntry): string {

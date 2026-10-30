@@ -30,7 +30,7 @@ test("owner reads financial and occupancy reports and downloads them", async ({ 
   await expect(app.reports.summary("Received")).toHaveText(/30,000/);
   await expect(app.reports.summary("Collection rate")).toHaveText("75.0%");
   await expect(app.reports.summary("Owed at period end")).toHaveText(/10,000/);
-  await expect(page.getByRole("img", { name: /Billed and received per month/ })).toBeVisible();
+  await expect(page.getByRole("group", { name: /Billed and received per month/ })).toBeVisible();
   await page.getByRole("button", { name: new RegExp(`billed Ksh 20,000, received`) }).first().focus();
   await expect(page.getByRole("status").filter({ hasText: "Billed" })).toBeVisible();
   await app.reports.snap("reports-financial");

@@ -16,7 +16,7 @@ export default function OnboardingPage() {
           <NexoraLogo />
         </Link>
       </header>
-      <main className="mx-auto w-full max-w-lg px-4 pb-16 pt-4 sm:pt-10">
+      <main id="main" tabIndex={-1} className="outline-none mx-auto w-full max-w-lg px-4 pb-16 pt-4 sm:pt-10">
         <Suspense fallback={<Skeleton className="h-96 w-full" />}>
           <Onboarding />
         </Suspense>
