@@ -196,6 +196,8 @@ export interface Unit {
   market_rent: Money;
   water_meter_number: string;
   electricity_meter_number: string;
+  /** m²; used to split shared costs by size. */
+  floor_area: string | null;
   notes: string;
   current_lease: { id: UUID; reference: string; tenant_name?: string } | null;
   created_at: string;
@@ -371,6 +373,8 @@ export interface BillingSettings {
   generate_day: number;
 }
 
+export type SharedCostSplit = "equal" | "floor_area" | "meter_usage";
+
 export interface SharedCost {
   id: UUID;
   property: UUID;
@@ -379,6 +383,7 @@ export interface SharedCost {
   charge_type_name: string;
   period: string;
   total_amount: Money;
+  split_by: SharedCostSplit;
   description: string;
   allocated_amount: Money;
   allocated_units: number;

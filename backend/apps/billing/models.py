@@ -203,10 +203,16 @@ class SharedCost(OrganizationScopedModel):
     """A bill for a whole property (e.g. common-area electricity) to split between units
     whose rule for the charge type uses the shared method."""
 
+    class SplitBy(models.TextChoices):
+        EQUAL = "equal", "Evenly between units"
+        FLOOR_AREA = "floor_area", "By floor area"
+        METER_USAGE = "meter_usage", "By each unit's metered usage"
+
     property = models.ForeignKey("properties.Property", on_delete=models.PROTECT, related_name="+")
     charge_type = models.ForeignKey(ChargeType, on_delete=models.PROTECT, related_name="+")
     period = models.DateField(help_text="First day of the month the cost belongs to.")
     total_amount = MoneyField()
+    split_by = models.CharField(max_length=16, choices=SplitBy.choices, default=SplitBy.EQUAL)
     description = models.CharField(max_length=255, blank=True)
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, null=True, on_delete=models.SET_NULL, related_name="+"

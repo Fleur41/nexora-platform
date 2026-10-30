@@ -40,8 +40,9 @@ import {
 import { usePropertyOptions } from "@/features/properties/api";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { errorMessage } from "@/lib/api/errors";
-import { INVOICE_KIND } from "@/lib/labels";
+import { INVOICE_KIND, SHARED_COST_SPLIT } from "@/lib/labels";
 import { formatDateTime, formatDay, formatMoney, formatMonth, plural } from "@/lib/utils";
+import type { SharedCostSplit } from "@/types/api";
 
 import { GenerateBillingDialog } from "./generate-billing-dialog";
 import { InvoiceStatusBadge } from "./invoice-status";
@@ -282,9 +283,10 @@ function SharedCosts() {
     <div className="space-y-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <p className="max-w-2xl text-sm text-muted-foreground">
-          Enter a bill for a whole property (e.g. common-area electricity). It&apos;s split evenly
-          between occupied units whose charge rule uses the <em>shared</em> method when you
-          generate that month&apos;s invoices.
+          Enter a bill for a whole property (e.g. common-area electricity or the main water bill).
+          When you generate that month&apos;s invoices it&apos;s split between occupied units whose
+          charge rule uses the <em>shared</em> method: evenly, by floor area, or by what each
+          unit&apos;s meter measured that month.
         </p>
         {can("billing.generate") && <Button onClick={() => setAdding(true)}>Add shared cost</Button>}
       </div>
@@ -313,7 +315,10 @@ function SharedCosts() {
                     <p className="font-medium">{c.charge_type_name}</p>
                     <p className="text-xs text-muted-foreground">{c.property_name}{c.description && ` · ${c.description}`}</p>
                   </TableCell>
-                  <TableCell className="hidden sm:table-cell">{formatMonth(c.period)}</TableCell>
+                  <TableCell className="hidden sm:table-cell">
+                    {formatMonth(c.period)}
+                    <p className="text-xs text-muted-foreground">{SHARED_COST_SPLIT[c.split_by]}</p>
+                  </TableCell>
                   <TableCell className="text-right">{formatMoney(c.total_amount, currency)}</TableCell>
                   <TableCell>
                     {c.allocated_units ? (
@@ -367,9 +372,14 @@ function SharedCostDialog({ open, onOpenChange }: { open: boolean; onOpenChange:
   const properties = usePropertyOptions(open);
   const types = useChargeTypes();
   const create = useCreateSharedCost();
-  const [form, setForm] = React.useState({ property: "", charge_type: "", month: "", total_amount: "", description: "" });
+  const empty = { property: "", charge_type: "", month: "", total_amount: "", split_by: "equal" as SharedCostSplit, description: "" };
+  const [form, setForm] = React.useState(empty);
   const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
     setForm({ ...form, [k]: e.target.value });
+  const chargeType = types.data?.find((t) => t.id === form.charge_type);
+  const metered = Boolean(chargeType?.meter_utility);
+  // Usage needs a charge linked to a meter type; fall back to an even split otherwise.
+  const splitBy = form.split_by === "meter_usage" && !metered ? "equal" : form.split_by;
   const valid = form.property && form.charge_type && form.month && /^\d+(\.\d{1,2})?$/.test(form.total_amount) && Number(form.total_amount) > 0;
 
   return (
@@ -408,6 +418,26 @@ function SharedCostDialog({ open, onOpenChange }: { open: boolean; onOpenChange:
             <Input inputMode="decimal" value={form.total_amount} onChange={set("total_amount")} />
           </FormField>
         </div>
+        <FormField
+          id="sc-split"
+          label="Split between units"
+          hint={
+            splitBy === "floor_area"
+              ? "Every sharing unit needs a floor area (edit the unit)."
+              : splitBy === "meter_usage"
+                ? `Each unit's ${chargeType?.meter_utility} meter needs a reading taken this month.`
+                : "The same amount for each occupied unit that shares this charge."
+          }
+        >
+          <NativeSelect value={splitBy} onChange={set("split_by")}>
+            <option value="equal">{SHARED_COST_SPLIT.equal}</option>
+            <option value="floor_area">{SHARED_COST_SPLIT.floor_area}</option>
+            <option value="meter_usage" disabled={!metered}>
+              {SHARED_COST_SPLIT.meter_usage}
+              {chargeType && !metered ? " (not a metered charge)" : ""}
+            </option>
+          </NativeSelect>
+        </FormField>
         <FormField id="sc-desc" label="Description (optional)">
           <Input placeholder="e.g. KPLC common areas, account 12345" value={form.description} onChange={set("description")} />
         </FormField>
@@ -425,12 +455,13 @@ function SharedCostDialog({ open, onOpenChange }: { open: boolean; onOpenChange:
                   charge_type: form.charge_type,
                   period: `${form.month}-01`,
                   total_amount: form.total_amount,
+                  split_by: splitBy,
                   description: form.description,
                 },
                 {
                   onSuccess: () => {
                     toast.success("Shared cost added");
-                    setForm({ property: "", charge_type: "", month: "", total_amount: "", description: "" });
+                    setForm(empty);
                     onOpenChange(false);
                   },
                 },

@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from django.db.models import Count, Q
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import extend_schema_field
@@ -152,6 +154,9 @@ class UnitSerializer(serializers.ModelSerializer):
     market_rent = serializers.DecimalField(
         max_digits=14, decimal_places=2, min_value=0, required=False
     )
+    floor_area = serializers.DecimalField(
+        max_digits=8, decimal_places=2, min_value=Decimal("0.01"), required=False, allow_null=True
+    )
     current_lease = serializers.SerializerMethodField()
 
     class Meta:
@@ -168,6 +173,7 @@ class UnitSerializer(serializers.ModelSerializer):
             "market_rent",
             "water_meter_number",
             "electricity_meter_number",
+            "floor_area",
             "notes",
             "current_lease",
             "created_at",

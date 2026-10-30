@@ -386,6 +386,10 @@ class Command(BaseCommand):
             amount=Decimal("0"),
         )
         units = {u.number: u for u in Unit.objects.filter(organization=org)}
+        # Floor areas by size, so Nyali's common-area electricity is split by floor area.
+        for unit in Unit.objects.filter(organization=org).select_related("unit_type"):
+            unit.floor_area = Decimal(28 + 22 * unit.unit_type.bedrooms)
+            unit.save(update_fields=["floor_area"])
         rule(
             charge_type=types["security"],
             scope="unit",
@@ -571,6 +575,7 @@ class Command(BaseCommand):
                     period=month,
                     defaults={
                         "total_amount": Decimal(self.rng.randint(5000, 9000)),
+                        "split_by": SharedCost.SplitBy.FLOOR_AREA,
                         "description": "KPLC common areas (sample)",
                         "created_by": owner,
                     },

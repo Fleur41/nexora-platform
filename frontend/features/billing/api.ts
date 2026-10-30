@@ -15,6 +15,7 @@ import type {
   Paginated,
   ResolvedCharges,
   SharedCost,
+  SharedCostSplit,
   TenantAccount,
 } from "@/types/api";
 
@@ -222,7 +223,14 @@ export function useSharedCosts(page = 1, enabled = true) {
 export function useCreateSharedCost() {
   const invalidate = useInvalidateOrg();
   return useMutation({
-    mutationFn: (input: { property: string; charge_type: string; period: string; total_amount: string; description: string }) =>
+    mutationFn: (input: {
+      property: string;
+      charge_type: string;
+      period: string;
+      total_amount: string;
+      split_by: SharedCostSplit;
+      description: string;
+    }) =>
       api.post<SharedCost>("/shared-costs/", input),
     onSuccess: () => invalidate("shared-costs"),
   });

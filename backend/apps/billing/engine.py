@@ -8,7 +8,8 @@ What gets billed for a month:
   (prorated by day, following rent terms and charge rules in force on each day).
 - One-time charges, once per lease.
 - Metered usage from new meter readings taken during the tenancy.
-- Shared costs for the month, split evenly between units set up to share them.
+- Shared costs for the month, split between units set up to share them: evenly, by floor
+  area, or by each unit's metered usage that month.
 
 Every line carries a dedupe key. Lines whose key is already billed (and not voided) are
 dropped, so re-running a month only bills what is new.
@@ -98,11 +99,27 @@ def _readings_by_unit(unit_ids, upto: date):
     return by_unit
 
 
-def _split_evenly(total: Decimal, n: int) -> list[Decimal]:
-    """Split into n cent amounts that add up exactly to total (remainder to the first)."""
-    base = (total / n).quantize(Decimal("0.01"), rounding=ROUND_DOWN)
-    remainder_cents = int((total - base * n) * 100)
-    return [base + (Decimal("0.01") if i < remainder_cents else ZERO) for i in range(n)]
+def _split_weighted(total: Decimal, weights: list[Decimal]) -> list[Decimal]:
+    """Split into cent amounts proportional to weights that add up exactly to total. Leftover
+    cents go to the largest remainders (the earliest first on a tie), so an even split gives
+    them to the first units."""
+    cents = int(total * 100)
+    whole = sum(weights)
+    exact = [Decimal(cents) * w / whole for w in weights]
+    shares = [int(x.to_integral_value(rounding=ROUND_DOWN)) for x in exact]
+    by_remainder = sorted(range(len(weights)), key=lambda i: (-(exact[i] - shares[i]), i))
+    for i in by_remainder[: cents - sum(shares)]:
+        shares[i] += 1
+    return [Decimal(s) / 100 for s in shares]
+
+
+def _number(value: Decimal) -> str:
+    """12.500 -> "12.5", 45.00 -> "45"."""
+    text = f"{value:f}"
+    return text.rstrip("0").rstrip(".") if "." in text else text
+
+
+USAGE_UNITS = {"water": " m³", "electricity": " kWh"}
 
 
 class _Drafter:
@@ -291,7 +308,8 @@ class _Drafter:
             )
         return lines
 
-    def shared_allocations(self, leases) -> dict:
+    def shared_allocations(self, leases, readings) -> dict:
+        """lease id -> [(cost, share, how it was split)]."""
         allocations = defaultdict(list)
         for cost in SharedCost.objects.filter(
             organization=self.organization, period=self.month
@@ -311,11 +329,81 @@ class _Drafter:
                     "not allocated: no occupied unit has a shared rule for this charge."
                 )
                 continue
-            for lease, share in zip(
-                eligible, _split_evenly(cost.total_amount, len(eligible)), strict=True
-            ):
-                allocations[lease.pk].append((cost, share, len(eligible)))
+            weights = self._shared_weights(cost, eligible, readings)
+            if weights is None:
+                continue
+            shares = _split_weighted(cost.total_amount, [w for w, _ in weights])
+            for lease, share, (_, basis) in zip(eligible, shares, weights, strict=True):
+                if share > 0:
+                    allocations[lease.pk].append((cost, share, basis))
         return allocations
+
+    def _shared_weights(self, cost: SharedCost, leases, readings):
+        """[(weight, description)] per lease, in order, or None (with a note) if the cost
+        can't be split this way yet."""
+        label = f"{cost.charge_type.name} for {cost.property.name} ({cost.period:%b %Y})"
+        if cost.split_by == SharedCost.SplitBy.FLOOR_AREA:
+            missing = [lease.unit.number for lease in leases if not lease.unit.floor_area]
+            if missing:
+                self.notes.append(
+                    f"{label} was not allocated: no floor area for unit "
+                    f"{', '.join(sorted(missing))}. Add it on the unit, then generate again."
+                )
+                return None
+            whole = sum(lease.unit.floor_area for lease in leases)
+            return [
+                (
+                    lease.unit.floor_area,
+                    f"shared by floor area, {_number(lease.unit.floor_area)} of "
+                    f"{_number(whole)} m²",
+                )
+                for lease in leases
+            ]
+        if cost.split_by == SharedCost.SplitBy.METER_USAGE:
+            utility = cost.charge_type.meter_utility
+            usage, missing = [], []
+            for lease in leases:
+                used = self._usage_in_month(lease, utility, readings.get(lease.unit_id, []))
+                if used is None:
+                    missing.append(lease.unit.number)
+                usage.append(used or ZERO)
+            if missing:
+                self.notes.append(
+                    f"{label} was not allocated: no {utility} reading this month for unit "
+                    f"{', '.join(sorted(missing))}. Record one, then generate again."
+                )
+                return None
+            whole = sum(usage)
+            if whole <= 0:
+                self.notes.append(f"{label} was not allocated: no {utility} was used this month.")
+                return None
+            unit = USAGE_UNITS.get(utility, "")
+            return [
+                (used, f"shared by usage, {_number(used)} of {_number(whole)}{unit}")
+                for used in usage
+            ]
+        return [(Decimal(1), f"shared 1/{len(leases)}")] * len(leases)
+
+    def _usage_in_month(self, lease: Lease, utility: str, meters) -> Decimal | None:
+        """What the unit's meters for a utility measured during this tenancy, from readings
+        taken this month; None if there's no such reading. A meter going backwards counts as
+        no reading (it's reported by metered billing)."""
+        tenancy_end = min(lease.ended_on or self.month_end, self.month_end)
+        used, measured = ZERO, False
+        for meter, readings in meters:
+            if meter.utility != utility:
+                continue
+            for previous, reading in zip(readings, readings[1:], strict=False):
+                if previous.reading_date < lease.start_date:
+                    continue
+                if not (self.month <= reading.reading_date <= tenancy_end):
+                    continue
+                consumption = reading.value - previous.value
+                if consumption < 0:
+                    return None
+                used += consumption
+                measured = True
+        return used if measured else None
 
     # --- assembly -------------------------------------------------------------
 
@@ -325,7 +413,7 @@ class _Drafter:
             leases = leases.filter(pk__in=self.lease_ids)
         leases = list(leases)
         readings = _readings_by_unit([lease.unit_id for lease in leases], self.month_end)
-        shared = self.shared_allocations(leases) if self.lease_ids is None else {}
+        shared = self.shared_allocations(leases, readings) if self.lease_ids is None else {}
 
         drafts: list[DraftInvoice] = []
         for lease in leases:
@@ -335,13 +423,11 @@ class _Drafter:
             recurring, period = self.recurring_lines(lease)
             lines = recurring + self.one_time_lines(lease, span)
             lines += self.metered_lines(lease, readings.get(lease.unit_id, []))
-            for cost, share, count in shared.get(lease.pk, []):
+            for cost, share, basis in shared.get(lease.pk, []):
                 lines.append(
                     DraftLine(
                         charge_type=cost.charge_type,
-                        description=(
-                            f"{cost.charge_type.name} (shared 1/{count}) · {cost.period:%b %Y}"
-                        ),
+                        description=f"{cost.charge_type.name} ({basis}) · {cost.period:%b %Y}",
                         amount=share,
                         unit_price=share,
                         period_start=self.month,

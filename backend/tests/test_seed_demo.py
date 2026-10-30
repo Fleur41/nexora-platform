@@ -4,7 +4,7 @@ import pytest
 from django.core.management import CommandError, call_command
 from django.db.models import Sum
 
-from apps.billing.models import ChargeRule, Invoice
+from apps.billing.models import ChargeRule, Invoice, InvoiceLine
 from apps.billing.services import lease_balance
 from apps.deposits.models import DepositTransaction
 from apps.inspections.models import Inspection
@@ -38,6 +38,10 @@ def test_seed_demo_builds_consistent_sample_data_once():
     # The organization-wide security charge exists (it used to be skipped).
     assert ChargeRule.objects.filter(
         organization=org, scope="organization", charge_type__code="security"
+    ).exists()
+    # Nyali's common-area electricity is split by floor area every month.
+    assert InvoiceLine.objects.filter(
+        organization=org, shared_cost__isnull=False, description__contains="by floor area"
     ).exists()
 
     # Phase 5: repairs in each state, inspections, move-outs, announcements, the tenant app.
