@@ -2,37 +2,11 @@ import { keepPreviousData, useMutation, useQuery } from "@tanstack/react-query";
 
 import { api } from "@/lib/api/client";
 import { useInvalidateOrg, useOrgKey } from "@/lib/org-query";
-import type { Enquiry, EnquiryKind, EnquiryOutcome, EnquiryStatus, Listing, Paginated, PublicListing, TimeOfDay } from "@/types/api";
+import type { Enquiry, EnquiryKind, EnquiryOutcome, EnquiryStatus, Listing, Paginated, TimeOfDay } from "@/types/api";
 
 // --- Public website (no organization, no sign-in) --------------------------------------------
 
 const open = { scoped: false } as const;
-
-export type ListingSearch = {
-  q?: string;
-  min_rent?: string;
-  max_rent?: string;
-  bedrooms?: string;
-  landlord?: string;
-  ordering?: string;
-  page?: number;
-};
-
-export function usePublicListings(search: ListingSearch) {
-  return useQuery({
-    queryKey: ["public-listings", search],
-    queryFn: () => api.get<Paginated<PublicListing>>("/public/listings/", search, open),
-    placeholderData: keepPreviousData,
-  });
-}
-
-export function usePublicListing(id: string) {
-  return useQuery({
-    queryKey: ["public-listings", "detail", id],
-    queryFn: () => api.get<PublicListing>(`/public/listings/${id}/`, undefined, open),
-    retry: false,
-  });
-}
 
 export type EnquiryInput = {
   kind: EnquiryKind;

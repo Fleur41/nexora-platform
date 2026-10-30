@@ -15,6 +15,13 @@ Browser ──► Next.js (UI only) ──/api/* rewrite──► Django REST AP
 Django owns **all** business rules, authorization, financial calculations and data access. The
 frontend only renders state and submits intents; capability checks in the UI are cosmetic hints.
 
+The public listings website (`/listings`, `/listings/{id}`, `sitemap.xml`, `robots.txt`) is the
+one place Next.js reads the API itself, on the server, so search engines and link previews get
+each home in the HTML. It calls only Django's anonymous public endpoints (`lib/api/server.ts`),
+forwarding the visitor's host, scheme and address so `ALLOWED_HOSTS`, the HTTPS redirect and
+per-visitor rate limits apply exactly as for a browser call. Everything signed in still runs in
+the browser through the `/api/*` rewrite.
+
 ## Layers
 
 | Layer | Location | Responsibility |

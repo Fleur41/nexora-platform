@@ -192,11 +192,21 @@ The landlord's running costs outside repairs, so reports show what each property
       of maintenance costs)
 - [x] Sample data: a year of guards, garbage, water, salaries, office rent, fees and land rates
 
+## After Phase 7 — Server-rendered public listings ✅ complete
+Homes are in the page's HTML, so search engines index them and shared links show a preview.
+
+- [x] `/listings` and `/listings/{id}` render on the server (static shell, homes streamed in);
+      filters stay in the URL, and result pages are real links
+- [x] Each home has its own title, description, canonical URL and Open Graph/Twitter card with
+      its first photo; a home that's been let shows "no longer advertised" and isn't indexed
+- [x] `sitemap.xml` lists every advertised home; `robots.txt` keeps crawlers out of signed-in areas
+- [x] Server-side API reads forward the visitor's host, scheme and address, so Django's host
+      checks, HTTPS redirect and per-visitor rate limits are unchanged; nothing is fetched at build
+- [x] Friendly error when homes can't be loaded (e.g. rate-limited)
+
 ## Known limitations (current)
 
 - The arrears report is always as of today; other reports cover any past period.
-- Public listing pages are rendered in the browser, so search engines and link previews see only
-  the page title, not each home's details. Server rendering comes with production hardening.
 - M-Pesa integration is untested against Safaricom's real APIs (needs credentials); no direct bank
   API integration (CSV import only).
 - Payment allocation can't be moved between invoices after the fact; reverse and re-record instead.
@@ -207,8 +217,6 @@ The landlord's running costs outside repairs, so reports show what each property
   per-charge "no proration" option for other months (e.g. a mid-month rent change).
 - Move-out settlement doesn't credit unused days on a month that was already billed; staff credit
   that invoice by hand if the agreement allows it (the settlement preview says so).
-- Property photos are private for now. Public listings (Phase 6) will add an explicit
-  publish step for chosen photos.
 - Lists used in pickers (properties, tenants in the lease form) load the first 50–100 records
   plus server-side search. Very large portfolios will want typeahead pickers.
 - No second factor (TOTP/passkeys) for sign-in yet; recommended first for platform admins.

@@ -1,101 +1,30 @@
-"use client";
-
-import { BedDouble, CalendarCheck, Home, MapPin, Search } from "lucide-react";
+import { BedDouble, CalendarCheck, ChevronLeft, ChevronRight, Home, MapPin } from "lucide-react";
 import Link from "next/link";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import * as React from "react";
 
-import { Input, NativeSelect } from "@/components/ui/input";
-import { Pagination } from "@/components/ui/pagination";
-import { Skeleton } from "@/components/ui/skeleton";
-import { EmptyState, ErrorState } from "@/components/ui/states";
-import { type ListingSearch, usePublicListings } from "@/features/listings/api";
-import { useDebouncedValue } from "@/hooks/use-debounced-value";
-import { errorMessage } from "@/lib/api/errors";
+import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/states";
+import { bedroomsLabel, LISTINGS_PAGE_SIZE, type ListingSearch } from "@/features/listings/format";
 import { formatDay, formatMoney } from "@/lib/utils";
-import type { PublicListing } from "@/types/api";
+import type { Paginated, PublicListing } from "@/types/api";
 
-export function bedroomsLabel(n: number, category: string) {
-  return n === 0 ? category : `${n} bedroom${n === 1 ? "" : "s"}`;
-}
+// Rendered on the server so search engines and link previews see every home.
 
-export function PublicListings() {
-  const router = useRouter();
-  const pathname = usePathname();
-  const params = useSearchParams();
-  const [q, setQ] = React.useState(params.get("q") ?? "");
-  const debounced = useDebouncedValue(q, 350);
-  const search: ListingSearch = {
-    q: debounced || undefined,
-    max_rent: params.get("max_rent") ?? undefined,
-    bedrooms: params.get("bedrooms") ?? undefined,
-    landlord: params.get("landlord") ?? undefined,
-    ordering: params.get("ordering") ?? undefined,
-    page: Number(params.get("page") ?? 1),
-  };
-  const listings = usePublicListings(search);
-
-  const update = React.useCallback(
-    (changes: Record<string, string | null>) => {
-      const next = new URLSearchParams(params.toString());
-      for (const [k, v] of Object.entries(changes)) {
-        if (v) next.set(k, v);
-        else next.delete(k);
-      }
-      if (!("page" in changes)) next.delete("page");
-      router.replace(`${pathname}?${next.toString()}`, { scroll: false });
-    },
-    [params, pathname, router],
-  );
-  React.useEffect(() => {
-    if ((params.get("q") ?? "") !== debounced) update({ q: debounced || null });
-  }, [debounced, params, update]);
-
+export function ListingResults({ data, search }: { data: Paginated<PublicListing>; search: ListingSearch }) {
+  if (data.results.length === 0) {
+    return <EmptyState icon={Home} title="No homes match" description="Try another area, a higher rent or fewer bedrooms." />;
+  }
   return (
-    <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6">
-      <h1 className="text-3xl font-semibold tracking-tight">Find a home</h1>
-      <p className="mt-1 text-muted-foreground">Homes to let from landlords using Nexora. Ask a question or book a viewing in a minute.</p>
-
-      <div className="mt-6 flex flex-col gap-3 md:flex-row">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
-          <Input aria-label="Search by area or name" placeholder="Area, town or building (e.g. Westlands)" className="pl-9" value={q} onChange={(e) => setQ(e.target.value)} />
-        </div>
-        <NativeSelect aria-label="Bedrooms" className="md:w-40" value={params.get("bedrooms") ?? ""} onChange={(e) => update({ bedrooms: e.target.value || null })}>
-          <option value="">Any size</option>
-          <option value="1">1+ bedrooms</option>
-          <option value="2">2+ bedrooms</option>
-          <option value="3">3+ bedrooms</option>
-        </NativeSelect>
-        <NativeSelect aria-label="Maximum rent" className="md:w-44" value={params.get("max_rent") ?? ""} onChange={(e) => update({ max_rent: e.target.value || null })}>
-          <option value="">Any rent</option>
-          {[10000, 20000, 30000, 50000, 80000, 120000].map((v) => <option key={v} value={v}>Up to {v.toLocaleString("en-KE")}</option>)}
-        </NativeSelect>
-        <NativeSelect aria-label="Sort" className="md:w-44" value={params.get("ordering") ?? ""} onChange={(e) => update({ ordering: e.target.value || null })}>
-          <option value="">Newest first</option>
-          <option value="rent">Rent: low to high</option>
-          <option value="-rent">Rent: high to low</option>
-        </NativeSelect>
-      </div>
-
-      <div className="mt-6">
-        {listings.isPending ? (
-          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">{[0, 1, 2].map((i) => <Skeleton key={i} className="h-80 w-full" />)}</div>
-        ) : listings.isError ? (
-          <ErrorState message={errorMessage(listings.error)} onRetry={() => listings.refetch()} />
-        ) : listings.data.results.length === 0 ? (
-          <EmptyState icon={Home} title="No homes match" description="Try another area, a higher rent or fewer bedrooms." />
-        ) : (
-          <>
-            <p className="mb-3 text-sm text-muted-foreground">{listings.data.count} home{listings.data.count === 1 ? "" : "s"} to let</p>
-            <ul className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-              {listings.data.results.map((l) => <ListingCard key={l.id} listing={l} />)}
-            </ul>
-            <Pagination page={search.page ?? 1} pageSize={25} count={listings.data.count} onPageChange={(p) => update({ page: String(p) })} />
-          </>
-        )}
-      </div>
-    </div>
+    <>
+      <p className="mb-3 text-sm text-muted-foreground">
+        {data.count} home{data.count === 1 ? "" : "s"} to let
+      </p>
+      <ul className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+        {data.results.map((l) => (
+          <ListingCard key={l.id} listing={l} />
+        ))}
+      </ul>
+      <Pager search={search} count={data.count} />
+    </>
   );
 }
 
@@ -126,5 +55,43 @@ function ListingCard({ listing: l }: { listing: PublicListing }) {
         </div>
       </Link>
     </li>
+  );
+}
+
+/** Previous/next as real links, so crawlers can follow every page of results. */
+function Pager({ search, count }: { search: ListingSearch; count: number }) {
+  const page = search.page ?? 1;
+  const pages = Math.max(1, Math.ceil(count / LISTINGS_PAGE_SIZE));
+  if (pages <= 1) return null;
+  const href = (p: number) => {
+    const query = new URLSearchParams();
+    for (const [k, v] of Object.entries({ ...search, page: p > 1 ? p : undefined })) if (v) query.set(k, String(v));
+    const qs = query.toString();
+    return qs ? `/listings?${qs}` : "/listings";
+  };
+  const from = (page - 1) * LISTINGS_PAGE_SIZE + 1;
+  const to = Math.min(page * LISTINGS_PAGE_SIZE, count);
+  return (
+    <nav aria-label="Pages of results" className="flex items-center justify-between gap-4 px-1 pt-4 text-sm text-muted-foreground">
+      <p>
+        {from}–{to} of {count}
+      </p>
+      <div className="flex gap-2">
+        {page > 1 && (
+          <Button asChild variant="outline" size="sm">
+            <Link href={href(page - 1)} rel="prev" scroll={false}>
+              <ChevronLeft aria-hidden /> Previous
+            </Link>
+          </Button>
+        )}
+        {page < pages && (
+          <Button asChild variant="outline" size="sm">
+            <Link href={href(page + 1)} rel="next" scroll={false}>
+              Next <ChevronRight aria-hidden />
+            </Link>
+          </Button>
+        )}
+      </div>
+    </nav>
   );
 }

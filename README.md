@@ -504,6 +504,11 @@ A listing comes down by itself once the unit is let, and goes back up if it beco
 while still published. A unit on notice can be listed too: it shows "available from" the day
 after the tenant moves out.
 
+The listing pages are rendered on the server, so search engines index each home and a link shared
+on WhatsApp, Facebook or X shows the title, rent, area and first photo. `/sitemap.xml` lists
+every advertised home and `/robots.txt` points crawlers to it; both use the domain the site is
+visited on.
+
 ## Subscriptions (what landlords pay Nexora)
 
 Every new organization gets a **30-day free trial** on the Growth plan. Plans are priced by
