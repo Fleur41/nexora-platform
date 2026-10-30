@@ -15,6 +15,7 @@ from rest_framework.views import APIView
 from apps.audit.services import record_event
 from apps.billing.models import LedgerEntry
 from apps.core.money import ZERO
+from apps.core.net import client_ip
 from apps.leases.models import Lease
 from apps.organizations.access import (
     OrganizationPermission,
@@ -396,7 +397,7 @@ class MpesaCallbackView(APIView):
         config = mpesa.config_for_token(token)
         if config is None:
             raise exceptions.NotFound()
-        remote = request.META.get("REMOTE_ADDR")
+        remote = client_ip(request)
         if (
             settings.MPESA_CALLBACK_ALLOWED_IPS
             and remote not in settings.MPESA_CALLBACK_ALLOWED_IPS

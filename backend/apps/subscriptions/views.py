@@ -1,10 +1,13 @@
+from django.conf import settings
 from django.db import transaction
 from drf_spectacular.utils import extend_schema
 from rest_framework import exceptions, status
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
+from rest_framework.throttling import AnonRateThrottle
 from rest_framework.views import APIView
 
+from apps.core.net import client_ip
 from apps.organizations.access import OrganizationPermission
 from apps.organizations.models import organization_today
 
@@ -104,14 +107,27 @@ class PayInvoiceView(APIView):
         )
 
 
+class CallbackThrottle(AnonRateThrottle):
+    rate = "300/min"
+
+
 class MpesaCallbackView(APIView):
-    """Daraja's result for prompts sent through Nexora's own paybill."""
+    """Daraja's result for prompts sent through Nexora's own paybill.
+
+    Authenticated by the secret token in the URL and, when configured, Safaricom's source IPs.
+    """
 
     permission_classes = [AllowAny]
     authentication_classes = []
+    throttle_classes = [CallbackThrottle]
 
-    @extend_schema(request=dict, responses=dict)
-    def post(self, request):
+    @extend_schema(request=dict, responses=dict, auth=[])
+    def post(self, request, token):
+        if not services.valid_callback_token(token):
+            raise exceptions.NotFound()
+        allowed = settings.MPESA_CALLBACK_ALLOWED_IPS
+        if allowed and client_ip(request) not in allowed:
+            raise exceptions.PermissionDenied()
         with transaction.atomic():
             services.handle_stk_callback(request.data if isinstance(request.data, dict) else {})
         return Response({"ResultCode": 0, "ResultDesc": "Accepted"})

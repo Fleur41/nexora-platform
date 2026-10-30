@@ -25,7 +25,7 @@ export default function PublicLayout({ children }: LayoutProps<"/">) {
           </nav>
         </div>
       </header>
-      <main className="flex-1">{children}</main>
+      <main id="main" tabIndex={-1} className="outline-none flex-1">{children}</main>
       <footer className="border-t bg-muted/40">
         <div className="mx-auto flex max-w-6xl flex-col gap-2 px-4 py-8 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between sm:px-6">
           <NexoraLogo className="scale-90" />

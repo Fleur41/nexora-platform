@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.contrib.auth import (
     authenticate,
     login,
@@ -79,6 +80,9 @@ class LoginView(AuthThrottleMixin, APIView):
             # Same message whether the account exists or not, to avoid enumeration.
             raise exceptions.AuthenticationFailed("Invalid email or password.")
         login(request, user)
+        if user.is_platform_admin:
+            # Staff sessions reach every organization's billing; keep them short.
+            request.session.set_expiry(settings.PLATFORM_ADMIN_SESSION_AGE)
         record_event(request, "user.logged_in", target=user, actor=user)
         return Response(UserSerializer(user).data)
 

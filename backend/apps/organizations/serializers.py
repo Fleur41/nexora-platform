@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from rest_framework import serializers
 
 from apps.accounts.serializers import UserSerializer
@@ -61,7 +63,7 @@ class MyOrganizationSerializer(serializers.Serializer):
     def get_capabilities(self, membership: Membership) -> list[str]:
         return sorted(membership.capabilities)
 
-    def get_support_until(self, membership: Membership):
+    def get_support_until(self, membership: Membership) -> datetime | None:
         grant = getattr(membership, "support_grant", None)
         return grant.expires_at if grant else None
 

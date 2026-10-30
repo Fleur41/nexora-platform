@@ -160,7 +160,9 @@ def test_mpesa_prompt_and_callback(owner, org_a, settings, monkeypatch):
     res = client.post(f"/api/v1/subscription/invoices/{invoice.pk}/pay/", {"phone": "0712 345 678"})
     assert res.status_code == 201
     assert sent["account_reference"] == sub.account_code and sent["amount"] == 7500
-    assert sent["callback_url"] == "https://api.nexora.example/api/v1/subscription/mpesa/callback/"
+    callback_url = sent["callback_url"]
+    token = services.callback_token()
+    assert callback_url == f"https://api.nexora.example/api/v1/subscription/mpesa/{token}/callback/"
 
     callback = {
         "Body": {
@@ -168,18 +170,29 @@ def test_mpesa_prompt_and_callback(owner, org_a, settings, monkeypatch):
                 "CheckoutRequestID": "ws_CO_123",
                 "ResultCode": 0,
                 "CallbackMetadata": {
-                    "Item": [{"Name": "MpesaReceiptNumber", "Value": "TKX123ABC"}]
+                    "Item": [
+                        {"Name": "Amount", "Value": 7500},
+                        {"Name": "MpesaReceiptNumber", "Value": "TKX123ABC"},
+                    ]
                 },
             }
         }
     }
+    # Without the secret token, or from outside Safaricom's addresses, nothing happens.
+    assert (
+        APIClient()
+        .post("/api/v1/subscription/mpesa/forged/callback/", callback, format="json")
+        .status_code
+        == 404
+    )
+    settings.MPESA_CALLBACK_ALLOWED_IPS = ["196.201.214.200"]
+    path = f"/api/v1/subscription/mpesa/{token}/callback/"
+    assert APIClient().post(path, callback, format="json").status_code == 403
+    invoice.refresh_from_db()
+    assert invoice.status == "open"
+    settings.MPESA_CALLBACK_ALLOWED_IPS = []
     for _ in range(2):  # repeated callbacks are harmless
-        assert (
-            APIClient()
-            .post("/api/v1/subscription/mpesa/callback/", callback, format="json")
-            .status_code
-            == 200
-        )
+        assert APIClient().post(path, callback, format="json").status_code == 200
     invoice.refresh_from_db()
     assert (invoice.status, invoice.payment_method, invoice.payment_reference) == (
         "paid",
@@ -205,3 +218,27 @@ def test_only_owners_see_invoices_and_change_plans(make_member, org_a):
     assert manager.get("/api/v1/subscription/invoices/").status_code == 403
     assert manager.post("/api/v1/subscription/change-plan/", {"plan": "pro"}).status_code == 403
     assert Organization.objects.count() >= 1
+
+
+def test_short_mpesa_payment_does_not_settle_the_invoice(org_a):
+    from apps.subscriptions.models import SubscriptionPaymentRequest
+
+    invoice = services.issue_invoice(sub_of(org_a), TODAY)
+    SubscriptionPaymentRequest.objects.create(
+        invoice=invoice, phone="254712345678", amount=7500, checkout_request_id="ws_CO_short"
+    )
+    item = {"Name": "Amount", "Value": 10}
+    services.handle_stk_callback(
+        {
+            "Body": {
+                "stkCallback": {
+                    "CheckoutRequestID": "ws_CO_short",
+                    "ResultCode": 0,
+                    "CallbackMetadata": {"Item": [item]},
+                }
+            }
+        }
+    )
+    invoice.refresh_from_db()
+    assert invoice.status == "open"
+    assert SubscriptionPaymentRequest.objects.get().status == "failed"

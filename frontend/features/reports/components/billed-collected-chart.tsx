@@ -117,7 +117,8 @@ export function BilledCollectedChart({ data, currency }: { data: Point[]; curren
         </table>
       ) : (
         <div ref={box} className="relative" onPointerLeave={() => setActive(null)}>
-          <svg width={width} height={HEIGHT} role="img" aria-label={`Billed and received per month in ${currency}`} className="block">
+          {/* A group, not an image: each month inside is a focusable control with its own label. */}
+          <svg width={width} height={HEIGHT} role="group" aria-label={`Billed and received per month in ${currency}`} className="block">
             {scale.map((t) => (
               <g key={t}>
                 <line x1={PAD.left} x2={width - PAD.right} y1={y(t)} y2={y(t)} stroke="var(--border)" strokeWidth={t === 0 ? 1.5 : 1} />
@@ -144,7 +145,7 @@ export function BilledCollectedChart({ data, currency }: { data: Point[]; curren
                     onPointerMove={() => setActive(i)}
                     onFocus={() => setActive(i)}
                     onBlur={() => setActive(null)}
-                    className="cursor-default outline-none"
+                    className="cursor-default outline-none focus-visible:[stroke-width:2] focus-visible:[stroke:var(--ring)]"
                   />
                   {SERIES.map((s, j) => (
                     <path

@@ -18,7 +18,7 @@ urlpatterns = [
         name="subscription-invoice-pay",
     ),
     path(
-        "subscription/mpesa/callback/",
+        "subscription/mpesa/<str:token>/callback/",
         views.MpesaCallbackView.as_view(),
         name="subscription-mpesa-callback",
     ),

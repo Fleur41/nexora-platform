@@ -14,16 +14,16 @@
   --secondary-foreground: #0b2545;
   --muted: #f1f4f8;
   --muted-foreground: #5b6779;
-  --accent: #0f9d76;
+  --accent: #0b8564;
   --accent-foreground: #ffffff;
-  --accent-strong: #0a7a5b;
+  --accent-strong: #08694e;
   --warning: #d97706;
-  --warning-strong: #b45309;
+  --warning-strong: #9a4507;
   --destructive: #c62828;
   --destructive-foreground: #ffffff;
   --border: #e2e7ee;
   --input: #d5dce6;
-  --ring: #0f9d76;
+  --ring: #0b8564;
   --sidebar: #0b2545;
   --sidebar-foreground: #c9d5e6;
 }
@@ -65,5 +65,17 @@
     background: var(--background);
     color: var(--foreground);
     font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+  }
+}
+
+/* Respect the system "reduce motion" setting: no animations or smooth scrolling. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }

@@ -2,3 +2,6 @@ node_modules
 .next
 coverage
 .env*.local
+test-results
+playwright-report
+e2e/manual/out

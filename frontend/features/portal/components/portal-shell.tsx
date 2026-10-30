@@ -98,7 +98,7 @@ function PortalLayout({ user, hasDashboard, children }: { user: User; hasDashboa
           ))}
         </nav>
       </header>
-      <main className="mx-auto w-full max-w-3xl flex-1 px-4 pb-28 pt-5 sm:pb-10" data-tenancy={tenancy.tenant}>
+      <main id="main" tabIndex={-1} className="outline-none mx-auto w-full max-w-3xl flex-1 px-4 pb-28 pt-5 sm:pb-10" data-tenancy={tenancy.tenant}>
         <InstallPrompt />
         {children}
       </main>

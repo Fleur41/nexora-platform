@@ -10,7 +10,7 @@ export default function AuthLayout({ children }: LayoutProps<"/">) {
           <NexoraLogo />
         </Link>
       </header>
-      <main className="flex flex-1 items-start justify-center px-4 pb-16 pt-4 sm:pt-12">
+      <main id="main" tabIndex={-1} className="outline-none flex flex-1 items-start justify-center px-4 pb-16 pt-4 sm:pt-12">
         <div className="w-full max-w-md">{children}</div>
       </main>
     </div>

@@ -119,7 +119,7 @@ class OverviewView(PlatformView):
 
 
 class OrganizationListView(PlatformView):
-    @extend_schema(responses=dict)
+    @extend_schema(responses=dict, operation_id="platform_organizations_list")
     def get(self, request):
         qs = _organizations().order_by("name")
         q = request.query_params.get("search", "").strip()
@@ -292,7 +292,7 @@ class InvoiceListView(PlatformView):
         )
 
 
-class RecordPayment(serializers.Serializer):
+class PlatformRecordPayment(serializers.Serializer):
     method = serializers.ChoiceField(choices=SubscriptionInvoice.Method.choices)
     reference = serializers.CharField(max_length=64, allow_blank=True, required=False, default="")
 
@@ -302,11 +302,11 @@ class VoidInvoice(serializers.Serializer):
 
 
 class InvoiceActionView(PlatformView):
-    @extend_schema(request=RecordPayment, responses=SubscriptionInvoiceSerializer)
+    @extend_schema(request=PlatformRecordPayment, responses=SubscriptionInvoiceSerializer)
     def post(self, request, pk, action):
         invoice = get_object_or_404(SubscriptionInvoice, pk=pk)
         if action == "record-payment":
-            data = RecordPayment(data=request.data)
+            data = PlatformRecordPayment(data=request.data)
             data.is_valid(raise_exception=True)
             invoice = subscriptions.mark_paid(
                 invoice=invoice,

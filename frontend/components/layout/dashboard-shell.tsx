@@ -125,7 +125,7 @@ function ShellLayout({ user, children }: { user: User; children: React.ReactNode
           <UserMenu user={user} />
         </header>
         <StatusBanner />
-        <main className="flex-1 px-4 py-6 sm:px-6 lg:px-8">{children}</main>
+        <main id="main" tabIndex={-1} className="outline-none flex-1 px-4 py-6 sm:px-6 lg:px-8">{children}</main>
       </div>
     </div>
   );

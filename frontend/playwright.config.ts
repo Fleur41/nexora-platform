@@ -24,6 +24,8 @@ export default defineConfig({
   reporter: [["list"], ["html", { open: "never" }]],
   use: {
     baseURL: process.env.E2E_BASE_URL ?? "http://localhost:3000",
+    // For a staging stack on a self-signed or internal certificate (e.g. deploy/ on localhost).
+    ignoreHTTPSErrors: Boolean(process.env.E2E_IGNORE_HTTPS_ERRORS),
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
     headless: !headed,

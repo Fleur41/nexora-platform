@@ -134,12 +134,20 @@ SESSION_COOKIE_NAME = "nexora_session"
 SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SAMESITE = "Lax"
 SESSION_COOKIE_AGE = env.int("SESSION_COOKIE_AGE", default=60 * 60 * 24 * 7)
+# Platform admins (the /platform console) sign in for a working day at most.
+PLATFORM_ADMIN_SESSION_AGE = env.int("PLATFORM_ADMIN_SESSION_AGE", default=60 * 60 * 8)
 CSRF_COOKIE_NAME = "nexora_csrftoken"
 CSRF_COOKIE_HTTPONLY = False  # The SPA must read it to send X-CSRFToken.
 CSRF_COOKIE_SAMESITE = "Lax"
 
 # --- REST framework --------------------------------------------------------
+# Reverse proxies in front of Django (production: 1, the TLS proxy). Decides which
+# X-Forwarded-For entry is the client for throttling, audit and callback allowlists; with 0,
+# X-Forwarded-For is ignored. Too high a number lets clients spoof their address.
+NUM_PROXIES = env.int("NUM_PROXIES", default=0)
+
 REST_FRAMEWORK = {
+    "NUM_PROXIES": NUM_PROXIES,
     "DEFAULT_AUTHENTICATION_CLASSES": [
         "rest_framework.authentication.SessionAuthentication"  # enforces CSRF when logged in
     ],

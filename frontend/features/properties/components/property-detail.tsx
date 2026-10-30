@@ -228,11 +228,13 @@ function UnitsOverview({
                     "flex h-20 w-full flex-col items-start justify-between rounded-lg border p-2 text-left transition-shadow hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                     UNIT_STATUS[u.status].tile,
                   )}
-                  aria-label={`Unit ${u.number}, ${UNIT_STATUS[u.status].label}`}
                 >
-                  <span className="text-sm font-semibold">{u.number}</span>
-                  <span className="w-full truncate text-[11px] opacity-80">
+                  {/* Named by its visible text (number, then tenant or status); the status is
+                      spoken when a tenant's name is shown instead. */}
+                  <span className="text-sm font-semibold">{u.number}</span>{" "}
+                  <span className="w-full truncate text-[11px]">
                     {u.current_lease?.tenant_name ?? UNIT_STATUS[u.status].label}
+                    {u.current_lease?.tenant_name && <span className="sr-only">, {UNIT_STATUS[u.status].label}</span>}
                   </span>
                 </button>
               </li>

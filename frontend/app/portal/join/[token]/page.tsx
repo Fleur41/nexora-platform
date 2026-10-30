@@ -14,7 +14,7 @@ export default function PortalJoinPage() {
       <header className="px-4 py-6 sm:px-8">
         <Link href="/" aria-label="Nexora home"><NexoraLogo /></Link>
       </header>
-      <main className="flex flex-1 items-start justify-center px-4 pb-16 pt-4 sm:pt-12">
+      <main id="main" tabIndex={-1} className="outline-none flex flex-1 items-start justify-center px-4 pb-16 pt-4 sm:pt-12">
         <div className="w-full max-w-md">
           <Suspense fallback={<Skeleton className="h-64 w-full" />}>
             <PortalJoin />

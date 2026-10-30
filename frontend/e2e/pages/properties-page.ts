@@ -59,6 +59,7 @@ export class PropertiesPage extends BasePage {
   }
 
   unitTile(unit: string, status: string) {
-    return this.button(`Unit ${unit}, ${status}`);
+    // Tile name: number, then the tenant (if let), then the status.
+    return this.button(new RegExp(`^${unit} (.*, )?${status}$`));
   }
 }

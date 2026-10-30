@@ -7,7 +7,7 @@ export const metadata: Metadata = { title: "Offline" };
 // Static page cached by the portal service worker and shown when a page can't load offline.
 export default function PortalOfflinePage() {
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center gap-4 bg-muted/40 p-6 text-center">
+    <main id="main" tabIndex={-1} className="outline-none flex min-h-screen flex-col items-center justify-center gap-4 bg-muted/40 p-6 text-center">
       <NexoraMark className="size-12" />
       <h1 className="text-xl font-semibold">You&apos;re offline</h1>
       <p className="max-w-xs text-sm text-muted-foreground">

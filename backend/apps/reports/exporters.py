@@ -16,11 +16,29 @@ CONTENT_TYPES = {
 }
 
 
+NUMERIC = ("money", "number", "percent")
+
+
+def _csv_text(value):
+    """Neutralise spreadsheet formulas in user-entered text (names, notes): CSV injection."""
+    if isinstance(value, str) and value[:1] in ("=", "+", "-", "@", "\t", "\r"):
+        return "'" + value
+    return value
+
+
+def _xlsx_cell(sheet, row, column, value):
+    """Write a cell; strings are always stored as text, never as a formula."""
+    cell = sheet.cell(row=row, column=column, value=value)
+    if isinstance(value, str):
+        cell.data_type = "s"
+    return cell
+
+
 def _number(value, kind):
     """Typed cell value for spreadsheets: money and numbers as numbers, the rest as text."""
     if value is None or value == "":
         return None
-    if kind in ("money", "number", "percent"):
+    if kind in NUMERIC:
         return Decimal(str(value))
     return value
 
@@ -49,7 +67,7 @@ def to_csv(report) -> bytes:
     out = io.StringIO()
     w = csv.writer(out)
     for line in _heading_lines(report):
-        w.writerow([line])
+        w.writerow([_csv_text(line)])
     w.writerow([])
     for item in report["summary"]:
         w.writerow([item["label"], item["value"] if item["value"] is not None else ""])
@@ -59,7 +77,16 @@ def to_csv(report) -> bytes:
         cols = section["columns"]
         w.writerow([c["label"] for c in cols])
         for row in section["rows"]:
-            w.writerow(["" if row.get(c["key"]) is None else row.get(c["key"]) for c in cols])
+            w.writerow(
+                [
+                    ""
+                    if row.get(c["key"]) is None
+                    else row.get(c["key"])
+                    if c["kind"] in NUMERIC
+                    else _csv_text(row.get(c["key"]))
+                    for c in cols
+                ]
+            )
         if section.get("totals"):
             w.writerow(
                 [
@@ -86,7 +113,7 @@ def to_xlsx(report) -> bytes:
     ws = wb.active
     ws.title = "Summary"
     for i, line in enumerate(_heading_lines(report), start=1):
-        ws.cell(row=i, column=1, value=line).font = Font(bold=i <= 2, size=14 if i == 2 else 11)
+        _xlsx_cell(ws, i, 1, line).font = Font(bold=i <= 2, size=14 if i == 2 else 11)
     row = len(_heading_lines(report)) + 2
     for item in report["summary"]:
         ws.cell(row=row, column=1, value=item["label"])
@@ -119,7 +146,7 @@ def to_xlsx(report) -> bytes:
         for i, r in enumerate(rows, start=2):
             is_total = section.get("totals") is not None and i == len(rows) + 1
             for j, c in enumerate(cols, start=1):
-                cell = sheet.cell(row=i, column=j, value=_number(r.get(c["key"]), c["kind"]))
+                cell = _xlsx_cell(sheet, i, j, _number(r.get(c["key"]), c["kind"]))
                 cell.number_format = formats.get(c["kind"], "General")
                 if is_total:
                     cell.font = bold

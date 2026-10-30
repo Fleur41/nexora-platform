@@ -1,5 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 
+import { sameOrigin } from "../support/api";
+
 const unique = Date.now().toString(36);
 
 function text(page: Page, value: string | RegExp, exact = false) {
@@ -17,7 +19,7 @@ async function api<T>(page: Page, method: "GET" | "POST", path: string, body?: u
   const res = await page.request.fetch(`/api/v1${path}`, {
     method,
     data: body,
-    headers: { "X-CSRFToken": csrf, ...(orgId ? { "X-Organization-ID": orgId } : {}) },
+    headers: { ...sameOrigin(page), "X-CSRFToken": csrf, ...(orgId ? { "X-Organization-ID": orgId } : {}) },
   });
   expect(res.ok(), `${method} ${path}: ${await res.text()}`).toBeTruthy();
   return (await res.json()) as T;

@@ -64,6 +64,9 @@ class MoveOutSerializer(serializers.ModelSerializer):
             "completed_at",
             "created_at",
         ]
+        # One open notice per lease is checked by the service (409 with a clear message);
+        # DRF 3.17+ would otherwise turn the conditional unique constraint into a 400.
+        validators: list = []
 
 
 class AcknowledgeSerializer(serializers.Serializer):

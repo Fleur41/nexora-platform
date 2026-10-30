@@ -52,7 +52,7 @@ export function PlatformShell({ children }: { children: React.ReactNode }) {
                 <UserMenu user={user} />
               </div>
             </header>
-            <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6">{children}</main>
+            <main id="main" tabIndex={-1} className="outline-none mx-auto max-w-7xl px-4 py-6 sm:px-6">{children}</main>
           </div>
         )
       }

@@ -74,13 +74,13 @@ test("owner sets up a property, registers a tenant and lets a unit", async ({ pa
   await field(page, "How many").fill("6");
   await expect(text(page, "C1")).toBeVisible();
   await page.getByRole("button", { name: "Create units" }).click();
-  await expect(page.getByRole("button", { name: "Unit C6, Available" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "C6 Available" })).toBeVisible();
 
   // Mark one unit under maintenance from the grid.
-  await page.getByRole("button", { name: "Unit C6, Available" }).click();
+  await page.getByRole("button", { name: "C6 Available" }).click();
   await field(page, "New status").selectOption("under_maintenance");
   await page.getByRole("button", { name: "Apply" }).click();
-  await expect(page.getByRole("button", { name: "Unit C6, Under maintenance" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "C6 Under maintenance" })).toBeVisible();
   await page.keyboard.press("Escape");
 
   // Tenant.
@@ -115,7 +115,7 @@ test("owner sets up a property, registers a tenant and lets a unit", async ({ pa
 
   // Occupancy shows on the property and on the overview.
   await page.getByRole("link", { name: "Lavington Gardens" }).click();
-  await expect(page.getByRole("button", { name: /Unit C1, Occupied/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: /^C1 .*Occupied$/ })).toBeVisible();
   await snap(page, "property-detail");
   await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Overview" }).click();
   await expect(text(page, "Occupied units")).toBeVisible();

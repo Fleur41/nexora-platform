@@ -15,6 +15,8 @@ agreement: it is never invoiced automatically (platform staff extend its paid-un
 from __future__ import annotations
 
 import calendar
+import hashlib
+import hmac
 from dataclasses import dataclass
 from datetime import date, timedelta
 from decimal import Decimal
@@ -357,7 +359,8 @@ def request_payment(
             amount=amount,
             account_reference=invoice.organization.subscription.account_code,
             description="Nexora",
-            callback_url=f"{settings.NEXORA_PUBLIC_API_URL}/api/v1/subscription/mpesa/callback/",
+            callback_url=f"{settings.NEXORA_PUBLIC_API_URL}/api/v1/subscription/mpesa/"
+            f"{callback_token()}/callback/",
             till=False,
         )
     except DarajaError as exc:
@@ -373,6 +376,20 @@ def request_payment(
         request, "subscription.stk_requested", target=invoice, metadata={"phone": msisdn[-3:]}
     )
     return payment
+
+
+def callback_token() -> str:
+    """Secret path segment for Nexora's own M-Pesa callback, derived from SECRET_KEY.
+
+    Daraja can't sign callbacks, so the URL is the credential (as for landlords' paybills).
+    """
+    return hmac.new(
+        settings.SECRET_KEY.encode(), b"nexora-subscription-mpesa-callback", hashlib.sha256
+    ).hexdigest()[:40]
+
+
+def valid_callback_token(token: str) -> bool:
+    return hmac.compare_digest(token, callback_token())
 
 
 @transaction.atomic
@@ -397,6 +414,12 @@ def handle_stk_callback(body: dict) -> None:
         i.get("Name"): i.get("Value")
         for i in (callback.get("CallbackMetadata") or {}).get("Item", [])
     }
+    paid = Decimal(str(items.get("Amount", payment.amount)))
+    if paid < payment.amount:
+        payment.status = SubscriptionPaymentRequest.Status.FAILED
+        payment.result = f"Paid {paid}, expected {payment.amount}; record it by hand."
+        payment.save(update_fields=["status", "result", "updated_at"])
+        return
     payment.status = SubscriptionPaymentRequest.Status.SUCCEEDED
     payment.receipt = str(items.get("MpesaReceiptNumber", ""))[:32]
     payment.save(update_fields=["status", "receipt", "updated_at"])
