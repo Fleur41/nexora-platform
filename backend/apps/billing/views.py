@@ -392,6 +392,7 @@ class InvoiceViewSet(
         "create": "billing.generate",
         "void": "billing.adjust",
         "credit": "billing.adjust",
+        "pdf": "billing.view",
     }
     filterset_fields = ["status", "kind", "lease", "tenant", "unit", "billing_run"]
     search_fields = ["number", "tenant__full_name", "unit__number", "lease__reference"]
@@ -451,6 +452,17 @@ class InvoiceViewSet(
             notes=data.get("notes", ""),
         )
         return self._detail(invoice, status.HTTP_201_CREATED)
+
+    @extend_schema(responses={(200, "application/pdf"): bytes})
+    @action(detail=True, methods=["get"])
+    def pdf(self, request, pk=None):
+        """The invoice as a PDF (the same file tenants get by email)."""
+        from apps.core.pdf import pdf_response
+
+        from .pdf import invoice_filename, invoice_pdf
+
+        invoice = self.get_object()
+        return pdf_response(invoice_pdf(invoice), invoice_filename(invoice))
 
     @extend_schema(request=VoidSerializer, responses=InvoiceDetailSerializer)
     @action(detail=True, methods=["post"])

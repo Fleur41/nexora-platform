@@ -204,14 +204,25 @@ Homes are in the page's HTML, so search engines index them and shared links show
       checks, HTTPS redirect and per-visitor rate limits are unchanged; nothing is fetched at build
 - [x] Friendly error when homes can't be loaded (e.g. rate-limited)
 
+## After Phase 7 — Invoice and receipt PDFs ✅ complete
+Proper documents for tenants and accountants, instead of printing the web page.
+
+- [x] Generated A4 PDFs for invoices and receipts: the organization's letterhead (legal name,
+      address, contact), lines, credits, payments and amount due, how to pay (the lease's paybill,
+      till or bank account), and a VOID, PAID or REVERSED stamp
+- [x] Attached to the invoice and receipt emails sent to tenants, rendered at send time; if
+      rendering fails the email still goes, without the attachment (logged)
+- [x] **Download PDF** for staff (`billing.view` / `payments.view`) on invoices and receipts, and
+      for tenants in the tenant app on their own bills and receipts; always the current state
+- [x] Downloads are private and never cached (`Cache-Control: private, no-store`); text typed by
+      users is escaped, so it can't change the document's layout
+
 ## Known limitations (current)
 
 - The arrears report is always as of today; other reports cover any past period.
 - M-Pesa integration is untested against Safaricom's real APIs (needs credentials); no direct bank
   API integration (CSV import only).
 - Payment allocation can't be moved between invoices after the fact; reverse and re-record instead.
-- Tenants are notified of invoices and receipts (in the app and by email) and can print or save
-  them as PDF from the browser; there's no generated PDF attachment yet (Phase 6).
 - Shared costs split evenly per occupied unit; weighting by unit size or meter is not supported yet.
 - Proration is by calendar day. A lease can charge its first month in full instead; there is no
   per-charge "no proration" option for other months (e.g. a mid-month rent change).

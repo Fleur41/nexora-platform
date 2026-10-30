@@ -12,7 +12,7 @@ import urllib.parse
 import urllib.request
 
 from django.conf import settings
-from django.core.mail import send_mail
+from django.core.mail import EmailMessage
 
 logger = logging.getLogger(__name__)
 
@@ -21,14 +21,17 @@ class DeliveryError(Exception):
     pass
 
 
-def send_email(to: str, subject: str, body: str) -> None:
+def send_email(
+    to: str, subject: str, body: str, attachments: list[tuple[str, bytes, str]] = ()
+) -> None:
+    """Send one email; `attachments` are (filename, content, MIME type)."""
     try:
-        send_mail(
-            subject=subject,
-            message=body,
-            from_email=settings.DEFAULT_FROM_EMAIL,
-            recipient_list=[to],
+        message = EmailMessage(
+            subject=subject, body=body, from_email=settings.DEFAULT_FROM_EMAIL, to=[to]
         )
+        for filename, content, mimetype in attachments:
+            message.attach(filename, content, mimetype)
+        message.send()
     except Exception as exc:  # noqa: BLE001 - surface transport failures as delivery errors
         raise DeliveryError(f"Email could not be sent: {exc.__class__.__name__}") from exc
 

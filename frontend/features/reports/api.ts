@@ -1,6 +1,7 @@
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 
 import { api, apiDownload } from "@/lib/api/client";
+import { saveBlob } from "@/lib/download";
 import { useOrgKey } from "@/lib/org-query";
 import type { Report, ReportKey, ReportListItem } from "@/types/api";
 
@@ -27,12 +28,5 @@ export async function downloadReport(report: ReportKey, params: ReportParams, fo
   const query = new URLSearchParams({ ...params, export: format });
   if (!params.property) query.delete("property");
   const blob = await apiDownload(`/reports/${report}/?${query.toString()}`);
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = `${report}-${params.start}-to-${params.end}.${format}`;
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  URL.revokeObjectURL(url);
+  saveBlob(blob, `${report}-${params.start}-to-${params.end}.${format}`);
 }

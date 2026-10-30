@@ -10,6 +10,7 @@ import { useOrganization } from "@/components/providers/organization-provider";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { PdfDownloadButton } from "@/components/ui/pdf-download-button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Dialog,
@@ -89,8 +90,10 @@ export function InvoiceDetail() {
             · {inv.property_name} {inv.unit_number}
           </p>
         </div>
-        {canAdjust && (
-          <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          <PdfDownloadButton path={`/invoices/${inv.id}/pdf/`} filename={`${inv.number}.pdf`} />
+          {canAdjust && (
+            <>
             <Button variant="outline" disabled={Number(inv.amount_due) <= 0} onClick={() => setDialog("credit")}>
               <BadgePercent /> Credit
             </Button>
@@ -103,8 +106,9 @@ export function InvoiceDetail() {
             >
               <Ban /> Void
             </Button>
-          </div>
-        )}
+            </>
+          )}
+        </div>
       </div>
 
       {inv.status === "void" && (

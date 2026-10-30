@@ -86,6 +86,8 @@ class Notification(TimeStampedModel):
         max_length=255, blank=True, help_text="App path, e.g. /portal/invoices/…"
     )
     dedupe_key = models.CharField(max_length=160, blank=True)
+    # Emails only: a document rendered as PDF when sent, e.g. "invoice:<id>" (see attachments.py).
+    attachment = models.CharField(max_length=80, blank=True)
     status = models.CharField(max_length=8, choices=Status.choices, default=Status.PENDING)
     attempts = models.PositiveSmallIntegerField(default=0)
     sent_at = models.DateTimeField(null=True, blank=True)

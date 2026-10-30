@@ -14,6 +14,7 @@ from rest_framework.views import APIView
 
 from apps.audit.services import record_event
 from apps.billing.models import LedgerEntry
+from apps.core.exceptions import BusinessRuleViolation
 from apps.core.money import ZERO
 from apps.core.net import client_ip
 from apps.leases.models import Lease
@@ -152,6 +153,7 @@ class PaymentViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, PropertyS
         "reverse": "payments.reverse",
         "refund": "payments.reverse",
         "summary": "payments.view",
+        "pdf": "payments.view",
     }
     filterset_fields = ["status", "method", "source", "lease", "tenant", "statement_import"]
     search_fields = [
@@ -243,6 +245,19 @@ class PaymentViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, PropertyS
         return self._detail(payment)
 
     @extend_schema(request=PaymentReverseSerializer, responses=PaymentDetailSerializer)
+    @extend_schema(responses={(200, "application/pdf"): bytes})
+    @action(detail=True, methods=["get"])
+    def pdf(self, request, pk=None):
+        """The receipt as a PDF (the same file the tenant gets by email)."""
+        from apps.core.pdf import pdf_response
+
+        from .pdf import receipt_filename, receipt_pdf
+
+        payment = self.get_object()
+        if payment.lease_id is None:
+            raise BusinessRuleViolation("Match this payment to a tenant before issuing a receipt.")
+        return pdf_response(receipt_pdf(payment), receipt_filename(payment))
+
     @action(detail=True, methods=["post"])
     def reverse(self, request, pk=None):
         payment = self.get_object()

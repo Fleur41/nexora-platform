@@ -8,6 +8,7 @@ import { NexoraLogo } from "@/components/brand/logo";
 import { useOrganization } from "@/components/providers/organization-provider";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { PdfDownloadButton } from "@/components/ui/pdf-download-button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ErrorState } from "@/components/ui/states";
 import { useLeaseAccount } from "@/features/billing/api";
@@ -33,9 +34,12 @@ export function Receipt() {
         <Link href={`/dashboard/payments/${p.id}`} className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
           <ArrowLeft className="size-4" /> Payment
         </Link>
-        <Button onClick={() => window.print()}>
-          <Printer /> Print / save PDF
-        </Button>
+        <div className="flex gap-2">
+          <PdfDownloadButton path={`/payments/${p.id}/pdf/`} filename={`${p.receipt_number}.pdf`} />
+          <Button onClick={() => window.print()}>
+            <Printer /> Print
+          </Button>
+        </div>
       </div>
       {p.status === "reversed" && <Alert variant="error" className="mb-4 print:hidden" title="This payment was reversed. The receipt is no longer valid." />}
       <article className="mx-auto max-w-2xl rounded-xl border bg-white p-8 text-sm text-[#0b1730] shadow-sm print:max-w-none print:border-0 print:p-0 print:shadow-none">

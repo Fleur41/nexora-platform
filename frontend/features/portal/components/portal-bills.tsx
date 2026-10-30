@@ -7,6 +7,7 @@ import * as React from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { PdfDownloadButton } from "@/components/ui/pdf-download-button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { NativeSelect } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -209,7 +210,8 @@ export function PortalInvoiceDetail() {
           </ul>
           <div className="flex flex-col gap-2 sm:flex-row print:hidden">
             {due > 0 && <Button asChild><Link href={`/portal/pay?amount=${Math.ceil(due)}`}><Smartphone /> Pay {formatMoney(due, currency)}</Link></Button>}
-            <Button variant="outline" onClick={() => window.print()}><Printer /> Print or save as PDF</Button>
+            <PdfDownloadButton path={`/portal/tenancies/${tenantId}/invoices/${i.id}/pdf/`} filename={`${i.number}.pdf`} scoped={false} />
+            <Button variant="outline" onClick={() => window.print()}><Printer /> Print</Button>
           </div>
         </CardContent>
       </Card>
@@ -260,7 +262,10 @@ export function PortalReceiptView() {
               </ul>
             </div>
           )}
-          <Button variant="outline" className="print:hidden" onClick={() => window.print()}><Printer /> Print or save as PDF</Button>
+          <div className="flex flex-col gap-2 sm:flex-row print:hidden">
+            <PdfDownloadButton path={`/portal/tenancies/${tenantId}/payments/${r.id}/pdf/`} filename={`${r.receipt_number}.pdf`} scoped={false} />
+            <Button variant="outline" onClick={() => window.print()}><Printer /> Print</Button>
+          </div>
         </CardContent>
       </Card>
     </>

@@ -11,8 +11,18 @@ urlpatterns = [
     path(
         f"{t}/invoices/<uuid:invoice_id>/", views.InvoiceDetailView.as_view(), name="portal-invoice"
     ),
+    path(
+        f"{t}/invoices/<uuid:invoice_id>/pdf/",
+        views.InvoicePdfView.as_view(),
+        name="portal-invoice-pdf",
+    ),
     path(f"{t}/payments/", views.PaymentsView.as_view(), name="portal-payments"),
     path(f"{t}/payments/<uuid:payment_id>/", views.ReceiptView.as_view(), name="portal-receipt"),
+    path(
+        f"{t}/payments/<uuid:payment_id>/pdf/",
+        views.ReceiptPdfView.as_view(),
+        name="portal-receipt-pdf",
+    ),
     path(
         f"{t}/leases/<uuid:lease_id>/statement/",
         views.StatementView.as_view(),
