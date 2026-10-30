@@ -35,6 +35,7 @@ test("public pages, the dashboard and the platform console meet WCAG 2.1 AA (aut
     "/dashboard/leases",
     "/dashboard/billing",
     "/dashboard/payments",
+    "/dashboard/expenses",
     "/dashboard/reports",
     "/dashboard/settings/subscription",
   ]) {

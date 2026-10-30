@@ -13,6 +13,7 @@ import type {
   DepositKind,
   EnquiryOutcome,
   EnquiryStatus,
+  ExpenseCategory,
   TimeOfDay,
   InvoiceKind,
   MeterUtility,
@@ -254,4 +255,20 @@ export const TIME_OF_DAY: Record<TimeOfDay, string> = {
   morning: "Morning",
   afternoon: "Afternoon",
   evening: "Evening",
+};
+
+export const EXPENSE_CATEGORY: Record<ExpenseCategory, string> = {
+  utilities: "Utilities (water, power, internet)",
+  security: "Security",
+  cleaning: "Cleaning and garbage",
+  salaries: "Salaries and wages",
+  repairs: "Repairs and upkeep",
+  insurance: "Insurance",
+  rates: "Land rates and taxes",
+  management: "Management and agent fees",
+  professional: "Legal and professional fees",
+  bank: "Bank and M-Pesa charges",
+  advertising: "Advertising",
+  office: "Office and administration",
+  other: "Other",
 };

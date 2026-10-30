@@ -56,7 +56,8 @@ export function formatCell(value: ReportCell, kind: ReportValueKind, currency: s
     case "percent":
       return `${value}%`;
     case "date":
-      return formatDay(String(value));
+      // A label such as "Total" can sit in a date column on the totals row.
+      return /^\d{4}-\d{2}-\d{2}$/.test(String(value)) ? formatDay(String(value)) : String(value);
     case "number":
       return Number(value).toLocaleString("en-KE");
     default:

@@ -17,13 +17,14 @@ from . import services
 from .exporters import CONTENT_TYPES, RENDERERS
 
 DESCRIPTIONS = {
-    "financial-summary": "Billed income by category, money received, maintenance costs, "
-    "deposits and arrears, with a month-by-month chart.",
+    "financial-summary": "Billed income by category, money received, spending, net operating "
+    "income, deposits and arrears, with a month-by-month chart.",
     "rent-roll": "Every tenancy with its rent, what was billed and paid, and the balance.",
     "arrears": "What each tenant owes, by how long it is overdue (as of today).",
     "occupancy": "Units by status, occupancy over the period and vacant units.",
     "deposits": "Deposits held for each tenancy; they are owed back, not income.",
     "maintenance-costs": "Money spent on repairs, per repair and per property.",
+    "expenses": "All spending: running costs and repairs, by category and property.",
 }
 
 
@@ -114,6 +115,7 @@ class ReportView(APIView):
             start=start,
             end=end,
             can_see_costs=membership.has_capability("maintenance.costs"),
+            can_see_expenses=membership.has_capability("expenses.view"),
         )
         report = builder(scope)
 

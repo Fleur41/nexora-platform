@@ -47,7 +47,10 @@ def _display(value, kind, currency, blank=None):
     if value is None or value == "":
         return blank if blank is not None else ("—" if kind != "text" else "")
     if kind == "date":
-        return date.fromisoformat(str(value)).strftime("%-d %b %Y")
+        try:
+            return date.fromisoformat(str(value)).strftime("%-d %b %Y")
+        except ValueError:  # a label in a date column, e.g. "Total" on the totals row
+            return str(value)
     if kind == "money":
         return f"{Decimal(str(value)):,.2f}"
     if kind == "percent":

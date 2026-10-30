@@ -6,7 +6,7 @@ import { expect, test } from "../support/fixtures";
 
 const unique = Date.now().toString(36);
 
-test("owner reads financial and occupancy reports and downloads them", async ({ app, page }) => {
+test("owner reads financial, occupancy and expense reports and downloads them", async ({ app, page }) => {
   // --- Setup: two months billed for one tenant, part paid; a second unit vacant ----------
   const api = new Api(page);
   await api.signUpOwner("Reports Owner", `e2e-reports-${unique}@example.com`, "Nexora-e2e-pass-2026", `Report Homes ${unique}`);
@@ -56,4 +56,26 @@ test("owner reads financial and occupancy reports and downloads them", async ({ 
   expect(xlsx.suggestedFilename()).toMatch(/\.xlsx$/);
   const csv = await app.reports.download("CSV");
   expect(fs.readFileSync(await csv.path(), "utf8")).toContain("Otieno Ouma");
+
+  // --- Expenses: record a running cost, then see it in the reports ------------------------
+  await page.goto("/dashboard/expenses");
+  await expect(app.reports.heading("Expenses").first()).toBeVisible();
+  await app.reports.button("Record expense").click();
+  const form = app.reports.dialog;
+  await form.getByLabel("Property").selectOption({ label: "Lavington Court" });
+  await form.getByLabel("Category").selectOption({ label: "Security" });
+  await form.getByLabel("Description").fill("Guards for the month");
+  await form.getByLabel(/^Amount/).fill("5000");
+  await form.getByRole("button", { name: "Record expense" }).click();
+  await expect(form).toBeHidden();
+  await expect(page.getByRole("row", { name: /Guards for the month/ })).toContainText("5,000");
+
+  await app.reports.open();
+  await app.reports.choose("Financial summary");
+  await app.reports.setPeriod("This year");
+  await expect(app.reports.summary("Other expenses")).toHaveText(/5,000/);
+  await expect(app.reports.summary("Net operating income")).toHaveText(/35,000/);
+  await app.reports.choose("Expenses");
+  await expect(app.reports.summary("Largest category")).toHaveText("Security");
+  await expect(page.getByRole("row", { name: /Guards for the month/ })).toContainText("Lavington Court");
 });

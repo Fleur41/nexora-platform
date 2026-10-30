@@ -32,6 +32,7 @@ from apps.billing import services as billing
 from apps.billing.defaults import ensure_default_charge_types
 from apps.billing.models import BillingSettings, ChargeRule, Invoice, SharedCost
 from apps.deposits import services as deposits
+from apps.expenses import services as expenses
 from apps.inspections import services as inspections
 from apps.inspections.models import Inspection
 from apps.leases import moveout
@@ -574,6 +575,7 @@ class Command(BaseCommand):
                         "created_by": owner,
                     },
                 )
+            self._expenses(request, org, month, today, kilimani, ruaka, nyali)
             result = billing.run_billing(
                 request=request, organization=org, month=month, issue_date=month
             )
@@ -938,6 +940,44 @@ class Command(BaseCommand):
         # Listings: two vacant units on the public website, with enquiries from it.
         self._listings(request, org, today)
         return tenant
+
+    def _expenses(self, request, org, month, today, kilimani, ruaka, nyali):
+        """A landlord's running costs for one month: guards, cleaning, utilities, office."""
+        monthly = [
+            (kilimani, "security", "Guards, two shifts", 36000, "Simba Security (sample)", 5),
+            (ruaka, "security", "Night guard", 18000, "Simba Security (sample)", 5),
+            (nyali, "security", "Guards, two shifts", 30000, "Pwani Guards (sample)", 5),
+            (kilimani, "cleaning", "Garbage collection", 4500, "Taka Taka Ltd (sample)", 8),
+            (ruaka, "cleaning", "Garbage collection", 3000, "Taka Taka Ltd (sample)", 8),
+            (kilimani, "utilities", "Water for common areas", 6500, "Nairobi Water (sample)", 12),
+            (nyali, "salaries", "Caretaker's salary", 22000, "", 28),
+            (None, "office", "Office rent", 15000, "Yaya Centre (sample)", 1),
+            (None, "bank", "Bank and M-Pesa charges", 1200, "", 28),
+        ]
+        if month.month in (1, 4, 7, 10):
+            monthly.append(
+                (None, "professional", "Bookkeeping, quarterly", 25000, "Otieno & Co (sample)", 15)
+            )
+        if month.month == 1:
+            for prop, amount in ((kilimani, 48000), (ruaka, 21000), (nyali, 36000)):
+                monthly.append((prop, "rates", "Land rates for the year", amount, "County", 20))
+        for prop, category, description, amount, supplier, day in monthly:
+            incurred_on = month.replace(day=day)
+            if incurred_on > today:
+                continue
+            if category in ("cleaning", "utilities", "bank"):  # bills that vary month to month
+                amount = int(amount * self.rng.uniform(0.85, 1.15)) // 10 * 10
+            expenses.create_expense(
+                request=request,
+                organization=org,
+                property=prop,
+                category=category,
+                description=description,
+                supplier_name=supplier,
+                amount=Decimal(amount),
+                incurred_on=incurred_on,
+                method="mpesa" if amount < 10000 else "bank",
+            )
 
     def _listings(self, request, org, today):
         from apps.listings import services as listings

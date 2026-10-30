@@ -9,8 +9,9 @@ Every report returns the same shape, so one exporter can render any of them:
 Column kinds: text, date, money, number, percent. Money values are strings ("1234.50").
 
 Figures come from posted records only: issued invoices and their credits, completed payments,
-deposit transactions and recorded maintenance costs. A member who doesn't cover the whole
-organization only ever sees the properties they're assigned to.
+deposit transactions, recorded maintenance costs and expenses that haven't been voided. A member
+who doesn't cover the whole organization only ever sees the properties they're assigned to;
+organization-wide expenses (not tied to a property) appear only in whole-organization reports.
 """
 
 from __future__ import annotations
@@ -27,6 +28,7 @@ from apps.billing.models import IncomeCategory, Invoice, InvoiceLine, LedgerEntr
 from apps.billing.periods import month_end, month_start
 from apps.core.money import ZERO, quantize
 from apps.deposits.models import DepositTransaction
+from apps.expenses.models import Expense
 from apps.leases.models import Lease
 from apps.maintenance.models import MaintenanceCost
 from apps.organizations.models import organization_today
@@ -45,6 +47,7 @@ class Scope:
     start: date
     end: date
     can_see_costs: bool
+    can_see_expenses: bool = False
 
     @property
     def property_ids(self):
@@ -217,6 +220,23 @@ def _expenses(scope: Scope):
     ).select_related("request__unit__property")
 
 
+def _other_expenses(scope: Scope):
+    """Recorded expenses (not repairs) in the period. Organization-wide ones count only when
+    the report covers the whole organization."""
+    where = Q(property__in=scope.property_ids)
+    if scope.org_wide:
+        where |= Q(property__isnull=True)
+    return Expense.objects.filter(
+        where,
+        organization=scope.organization,
+        status=Expense.Status.RECORDED,
+        incurred_on__range=(scope.start, scope.end),
+    ).select_related("property", "unit")
+
+
+ORGANIZATION_WIDE = "Organization-wide"
+
+
 # --- reports ----------------------------------------------------------------------------
 
 
@@ -225,7 +245,7 @@ def financial_summary(scope: Scope) -> dict:
         scope,
         "financial-summary",
         "Financial summary",
-        "What was billed and received, maintenance spending, deposits and arrears.",
+        "What was billed and received, spending, deposits and arrears.",
     )
     by_category = _billed_by_category(scope, scope.start, scope.end)
     income_rows, gross, credits = [], ZERO, ZERO
@@ -321,14 +341,17 @@ def financial_summary(scope: Scope) -> dict:
             },
         }
     )
+    spending_at = 3
     if scope.can_see_costs:
         spent = defaultdict(lambda: ZERO)
         for cost in _expenses(scope):
             spent[cost.request.unit.property.name] += cost.amount
         total_spent = sum(spent.values(), ZERO)
         report["summary"].insert(
-            3, {"label": "Maintenance costs", "value": _money(total_spent), "kind": "money"}
+            spending_at,
+            {"label": "Maintenance costs", "value": _money(total_spent), "kind": "money"},
         )
+        spending_at += 1
         report["sections"].append(
             {
                 "title": "Maintenance costs",
@@ -336,6 +359,48 @@ def financial_summary(scope: Scope) -> dict:
                 "columns": [_col("property", "Property"), _col("amount", "Spent", "money")],
                 "rows": [{"property": k, "amount": _money(v)} for k, v in sorted(spent.items())],
                 "totals": {"property": "Total", "amount": _money(total_spent)},
+            }
+        )
+    if scope.can_see_expenses:
+        by_category = defaultdict(lambda: ZERO)
+        for e in _other_expenses(scope):
+            by_category[e.category] += e.amount
+        total_expenses = sum(by_category.values(), ZERO)
+        report["summary"].insert(
+            spending_at,
+            {"label": "Other expenses", "value": _money(total_expenses), "kind": "money"},
+        )
+        labels = dict(Expense.Category.choices)
+        report["sections"].append(
+            {
+                "title": "Other expenses",
+                "note": "Running costs recorded in Expenses (utility bills, salaries, rates and "
+                "so on), by category. Voided expenses are excluded.",
+                "columns": [_col("category", "Category"), _col("amount", "Spent", "money")],
+                "rows": [
+                    {"category": labels[k], "amount": _money(v)}
+                    for k, v in sorted(by_category.items(), key=lambda kv: -kv[1])
+                ],
+                "totals": {"category": "Total", "amount": _money(total_expenses)},
+            }
+        )
+    if scope.can_see_costs and scope.can_see_expenses:
+        net_operating = net_billed - total_spent - total_expenses
+        report["summary"].append(
+            {"label": "Net operating income", "value": _money(net_operating), "kind": "money"}
+        )
+        report["sections"].append(
+            {
+                "title": "Operating result",
+                "note": "Net billed income less maintenance costs and other expenses in the "
+                "period. Deposits are neither income nor spending.",
+                "columns": [_col("item", "Item"), _col("amount", "Amount", "money")],
+                "rows": [
+                    {"item": "Net billed", "amount": _money(net_billed)},
+                    {"item": "Less maintenance costs", "amount": _money(-total_spent)},
+                    {"item": "Less other expenses", "amount": _money(-total_expenses)},
+                ],
+                "totals": {"item": "Net operating income", "amount": _money(net_operating)},
             }
         )
     report["sections"].append(
@@ -876,6 +941,126 @@ def maintenance_costs(scope: Scope) -> dict:
     return report
 
 
+def expenses(scope: Scope) -> dict:
+    report = _envelope(
+        scope,
+        "expenses",
+        "Expenses",
+        "All money spent in the period: running costs and repairs, by category and property.",
+    )
+    labels = dict(Expense.Category.choices)
+    items = [
+        {
+            "date": e.incurred_on,
+            "reference": e.reference,
+            "property": e.property.name if e.property else ORGANIZATION_WIDE,
+            "unit": e.unit.number if e.unit else "",
+            "category": labels[e.category],
+            "description": e.description,
+            "supplier": e.supplier_name,
+            "method": e.get_method_display() if e.method else "",
+            "amount": e.amount,
+        }
+        for e in _other_expenses(scope)
+    ]
+    if scope.can_see_costs:
+        items += [
+            {
+                "date": c.incurred_on or c.created_at.date(),
+                "reference": c.request.reference,
+                "property": c.request.unit.property.name,
+                "unit": c.request.unit.number,
+                "category": REPAIRS_FROM_REQUESTS,
+                "description": f"{c.request.title}: {c.description}",
+                "supplier": c.supplier_name,
+                "method": "",
+                "amount": c.amount,
+            }
+            for c in _expenses(scope)
+        ]
+    items.sort(key=lambda i: (i["date"], i["reference"]))
+    total = sum((i["amount"] for i in items), ZERO)
+    by_category: dict = defaultdict(lambda: [0, ZERO])
+    by_property: dict = defaultdict(lambda: ZERO)
+    for i in items:
+        by_category[i["category"]][0] += 1
+        by_category[i["category"]][1] += i["amount"]
+        by_property[i["property"]] += i["amount"]
+    largest = max(by_category.items(), key=lambda kv: kv[1][1], default=None)
+
+    report["summary"] = [
+        {"label": "Spent", "value": _money(total), "kind": "money"},
+        {"label": "Expenses recorded", "value": str(len(items)), "kind": "number"},
+        {"label": "Largest category", "value": largest[0] if largest else "–", "kind": "text"},
+    ]
+    report["sections"].append(
+        {
+            "title": "By category",
+            "note": "Voided expenses and quotations are excluded."
+            + (
+                f" “{REPAIRS_FROM_REQUESTS}” are costs recorded on maintenance requests."
+                if scope.can_see_costs
+                else ""
+            ),
+            "columns": [
+                _col("category", "Category"),
+                _col("count", "Items", "number"),
+                _col("amount", "Spent", "money"),
+                _col("share", "Share", "percent"),
+            ],
+            "rows": [
+                {"category": k, "count": v[0], "amount": _money(v[1]), "share": _pct(v[1], total)}
+                for k, v in sorted(by_category.items(), key=lambda kv: -kv[1][1])
+            ],
+            "totals": {
+                "category": "Total",
+                "count": len(items),
+                "amount": _money(total),
+                "share": "100.0" if total else None,
+            },
+        }
+    )
+    report["sections"].append(
+        {
+            "title": "By property",
+            "note": f"“{ORGANIZATION_WIDE}” covers costs not tied to one property (office rent, "
+            "accountant's fees and the like)."
+            if scope.org_wide
+            else "",
+            "columns": [_col("property", "Property"), _col("amount", "Spent", "money")],
+            "rows": [
+                {"property": k, "amount": _money(v)}
+                for k, v in sorted(
+                    by_property.items(), key=lambda kv: (kv[0] == ORGANIZATION_WIDE, kv[0])
+                )
+            ],
+            "totals": {"property": "Total", "amount": _money(total)},
+        }
+    )
+    report["sections"].append(
+        {
+            "title": "Every expense",
+            "note": "",
+            "columns": [
+                _col("date", "Date", "date"),
+                _col("reference", "Reference"),
+                _col("property", "Property"),
+                _col("unit", "Unit"),
+                _col("category", "Category"),
+                _col("description", "Description"),
+                _col("supplier", "Supplier"),
+                _col("method", "Paid by"),
+                _col("amount", "Amount", "money"),
+            ],
+            "rows": [{**i, "date": str(i["date"]), "amount": _money(i["amount"])} for i in items],
+            "totals": {"date": "Total", "amount": _money(total)},
+        }
+    )
+    return report
+
+
+REPAIRS_FROM_REQUESTS = "Repairs (maintenance requests)"
+
 REPORTS = {
     "financial-summary": financial_summary,
     "rent-roll": rent_roll,
@@ -883,6 +1068,7 @@ REPORTS = {
     "occupancy": occupancy,
     "deposits": deposits,
     "maintenance-costs": maintenance_costs,
+    "expenses": expenses,
 }
 # Reports that need more than reports.view.
-EXTRA_CAPABILITY = {"maintenance-costs": "maintenance.costs"}
+EXTRA_CAPABILITY = {"maintenance-costs": "maintenance.costs", "expenses": "expenses.view"}
