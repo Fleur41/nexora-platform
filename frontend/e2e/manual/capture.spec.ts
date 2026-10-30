@@ -425,6 +425,7 @@ test("capture the manual's screenshots", async ({ app, tenantApp, page }) => {
     ["Communications", "tab-communications"],
     ["Billing", "tab-billing", () => page.getByRole("tab", { name: "Invoices" }).click()],
     ["Payments", "tab-payments"],
+    ["Expenses", "tab-expenses"],
     ["Reports", "tab-reports", () => ui.field("Period").selectOption({ label: "This year" })],
     ["Utilities", "tab-utilities"],
     ["Charges", "tab-charges"],

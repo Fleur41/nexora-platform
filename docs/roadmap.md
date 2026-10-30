@@ -176,10 +176,24 @@ support access, security review, accessibility audit, deployment and backup runb
 - [x] Tests: 229 backend, 37 frontend unit, Playwright 11 smoke (incl. SaaS flow and
       accessibility) + regression journey
 
+## After Phase 7 — Expenses ✅ complete
+The landlord's running costs outside repairs, so reports show what each property really earns.
+
+- [x] Expenses (`/dashboard/expenses`): utility bills, security, cleaning, salaries, rates,
+      insurance, fees, bank charges and more, per property (optionally a unit) or
+      organization-wide; paid-by method and receipt code; references `EXP-0001`
+- [x] Corrections are audited edits; mistakes are voided with a reason, never deleted
+      (`expenses.void` is owner-only by default)
+- [x] Members on assigned properties see and record expenses only for those properties, never
+      organization-wide ones; capabilities `expenses.view`, `expenses.record`, `expenses.void`
+- [x] Financial summary adds other expenses and net operating income; new **Expenses** report
+      (by category, by property, every expense, with repairs from maintenance requests)
+- [x] Report exports no longer fail on a "Total" label in a date column (affected PDF exports
+      of maintenance costs)
+- [x] Sample data: a year of guards, garbage, water, salaries, office rent, fees and land rates
+
 ## Known limitations (current)
 
-- Expenses in reports are maintenance costs recorded on repairs; there is no general expenses
-  module yet (utility bills paid by the landlord, salaries, etc.).
 - The arrears report is always as of today; other reports cover any past period.
 - Public listing pages are rendered in the browser, so search engines and link previews see only
   the page title, not each home's details. Server rendering comes with production hardening.

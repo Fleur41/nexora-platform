@@ -1028,9 +1028,78 @@ export interface PortalMoveOut {
   completed_at: string | null;
 }
 
+// --- Expenses ---------------------------------------------------------------------------
+
+export type ExpenseCategory =
+  | "utilities"
+  | "security"
+  | "cleaning"
+  | "salaries"
+  | "repairs"
+  | "insurance"
+  | "rates"
+  | "management"
+  | "professional"
+  | "bank"
+  | "advertising"
+  | "office"
+  | "other";
+export type ExpenseStatus = "recorded" | "voided";
+
+export interface Expense {
+  id: UUID;
+  reference: string;
+  /** Empty for organization-wide costs (office rent, accountant's fees). */
+  property: UUID | null;
+  property_name: string | null;
+  unit: UUID | null;
+  unit_number: string | null;
+  category: ExpenseCategory;
+  description: string;
+  supplier_name: string;
+  amount: Money;
+  incurred_on: string;
+  method: PaymentMethod;
+  payment_reference: string;
+  notes: string;
+  status: ExpenseStatus;
+  voided_at: string | null;
+  voided_by_name: string;
+  void_reason: string;
+  created_by_name: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ExpenseInput {
+  property: UUID | null;
+  unit: UUID | null;
+  category: ExpenseCategory;
+  description: string;
+  supplier_name: string;
+  amount: string;
+  incurred_on: string;
+  method: PaymentMethod;
+  payment_reference: string;
+  notes: string;
+}
+
+export interface ExpenseSummary {
+  count: number;
+  total: Money;
+  by_category: { category: ExpenseCategory; label: string; count: number; total: Money }[];
+}
+
 // --- Reports ----------------------------------------------------------------------------
 
-export type ReportKey = "financial-summary" | "rent-roll" | "arrears" | "occupancy" | "deposits" | "maintenance-costs";
+export type ReportKey =
+  | "financial-summary"
+  | "rent-roll"
+  | "arrears"
+  | "occupancy"
+  | "deposits"
+  | "maintenance-costs"
+  | "expenses";
 export type ReportValueKind = "text" | "date" | "money" | "number" | "percent";
 
 export interface ReportListItem {

@@ -39,6 +39,7 @@ backend/                Django project (owns all business rules, auth and data a
   apps/deposits/        security deposit ledger (a liability, never income)
   apps/payments/        payment methods, payments, allocation, receipts, M-Pesa, bank imports
   apps/maintenance/     repair requests, quotes, messages
+  apps/expenses/        running costs (utility bills, salaries, rates…), per property or organization-wide
   apps/inspections/     move-in, routine and move-out inspections
   apps/notifications/   in-app and email notifications, announcements
   apps/portal/          tenant app API (bills, payments, repairs, move-out notice)
@@ -464,13 +465,27 @@ longer be edited.
 (this month, last month, this year, last year or custom dates) and optionally one property:
 
 - **Financial summary**: what was billed by income category (net of credits), money received by
-  payment method, maintenance costs, deposits and what tenants owe, with a month-by-month chart.
-  A month's rent counts in that month even if it was invoiced later.
+  payment method, maintenance costs, other expenses and net operating income, deposits and what
+  tenants owe, with a month-by-month chart. A month's rent counts in that month even if it was
+  invoiced later.
 - **Rent roll**, **Arrears** (aged: not yet due, 1–30, 31–60, 61–90, over 90 days),
-  **Occupancy** (with vacant units and days vacant), **Deposits** and **Maintenance costs**.
+  **Occupancy** (with vacant units and days vacant), **Deposits**, **Maintenance costs** and
+  **Expenses** (all spending by category and property, including repairs).
 
 **PDF**, **Excel** and **CSV** download any report for your accountant; every download is recorded
 in the audit log. Managers assigned to some properties only see those properties.
+
+## Expenses
+
+**Sidebar → Expenses** (owners, accountants, and property managers for their properties). Record
+the landlord's running costs: utility bills, guards, cleaning and garbage, salaries, land rates,
+insurance, agent and professional fees, bank and M-Pesa charges. Each expense belongs to a
+property (optionally one unit) or, for owners and organization-wide staff, to the whole
+organization (office rent, the accountant's fee). Repairs stay on maintenance requests.
+
+Edits are kept in the audit log. An expense entered by mistake is **voided** with a reason rather
+than deleted; voiding is owner-only by default (capability `expenses.void`). Voided expenses drop
+out of every report.
 
 ## Public listings
 

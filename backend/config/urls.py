@@ -19,6 +19,7 @@ api_v1 = [
     path("", include("apps.payments.urls")),
     path("", include("apps.notifications.urls")),
     path("", include("apps.maintenance.urls")),
+    path("", include("apps.expenses.urls")),
     path("", include("apps.inspections.urls")),
     path("", include("apps.portal.urls")),
     path("", include("apps.reports.urls")),
