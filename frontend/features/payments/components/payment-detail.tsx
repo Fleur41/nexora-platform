@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft, Printer, RotateCcw, Undo2, Wallet } from "lucide-react";
+import { ArrowLeft, ArrowRightLeft, Printer, RotateCcw, Undo2, Wallet } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import * as React from "react";
@@ -24,6 +24,7 @@ import { FormField } from "@/components/ui/form-field";
 import { Input, NativeSelect } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ErrorState } from "@/components/ui/states";
+import { useInvoices } from "@/features/billing/api";
 import { usePayment, usePaymentAction } from "@/features/payments/api";
 import { ApiError, errorMessage } from "@/lib/api/errors";
 import { PAYMENT_METHOD, PAYMENT_SOURCE } from "@/lib/labels";
@@ -36,6 +37,7 @@ export function PaymentDetail() {
   const payment = usePayment(id);
   const action = usePaymentAction();
   const [dialog, setDialog] = React.useState<"reverse" | "refund" | null>(null);
+  const [moving, setMoving] = React.useState<{ invoice: string; number: string } | null>(null);
   const tz = current.organization.timezone;
 
   if (payment.isPending) return <Skeleton className="h-96 w-full" />;
@@ -54,6 +56,7 @@ export function PaymentDetail() {
   const currency = current.organization.currency;
   const live = p.status === "completed";
   const credit = Number(p.unallocated);
+  const canMove = live && p.is_matched && can("payments.reverse");
 
   return (
     <>
@@ -149,11 +152,26 @@ export function PaymentDetail() {
             ) : (
               <ul className="divide-y text-sm">
                 {p.allocations.map((a) => (
-                  <li key={a.id} className="flex items-center justify-between py-2">
-                    <Link href={`/dashboard/billing/invoices/${a.invoice}`} className="hover:underline">
-                      {a.invoice_number}
-                    </Link>
-                    <span className={a.is_reversed ? "text-muted-foreground line-through" : ""}>{formatMoney(a.amount, currency)}</span>
+                  <li key={a.id} className="flex items-center justify-between gap-3 py-2">
+                    <span>
+                      <Link href={`/dashboard/billing/invoices/${a.invoice}`} className="hover:underline">
+                        {a.invoice_number}
+                      </Link>
+                      {a.is_reversed && live && <span className="ml-2 text-xs text-muted-foreground">moved</span>}
+                    </span>
+                    <span className="flex items-center gap-2">
+                      <span className={a.is_reversed ? "text-muted-foreground line-through" : ""}>{formatMoney(a.amount, currency)}</span>
+                      {canMove && !a.is_reversed && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          aria-label={`Move from ${a.invoice_number}`}
+                          onClick={() => setMoving({ invoice: a.invoice, number: a.invoice_number })}
+                        >
+                          <ArrowRightLeft /> Move
+                        </Button>
+                      )}
+                    </span>
                   </li>
                 ))}
               </ul>
@@ -202,6 +220,7 @@ export function PaymentDetail() {
       </div>
       <ReverseDialog payment={p} open={dialog === "reverse"} onClose={() => setDialog(null)} />
       <RefundDialog payment={p} open={dialog === "refund"} onClose={() => setDialog(null)} />
+      {moving && <MoveDialog payment={p} from={moving} onClose={() => setMoving(null)} />}
     </>
   );
 }
@@ -254,6 +273,82 @@ function ReverseDialog({ payment, open, onClose }: { payment: Detail; open: bool
             }
           >
             Reverse payment
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function MoveDialog({ payment, from, onClose }: { payment: Detail; from: { invoice: string; number: string }; onClose: () => void }) {
+  const { current } = useOrganization();
+  const currency = current.organization.currency;
+  const action = usePaymentAction();
+  const invoices = useInvoices({ lease: payment.lease ?? undefined, status: "issued", outstanding: true, page_size: 100 });
+  const applied = payment.allocations
+    .filter((a) => a.invoice === from.invoice && !a.is_reversed)
+    .reduce((sum, a) => sum + Number(a.amount), 0);
+  const targets = invoices.data?.results.filter((i) => i.id !== from.invoice) ?? [];
+  const [form, setForm] = React.useState({ to: "", amount: applied.toFixed(2), reason: "" });
+  const target = targets.find((i) => i.id === form.to);
+  const limit = target ? Math.min(applied, Number(target.amount_due)) : applied;
+  const amountOk = /^\d+(\.\d{1,2})?$/.test(form.amount) && Number(form.amount) > 0 && Number(form.amount) <= limit;
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Move payment from {from.number}</DialogTitle>
+          <DialogDescription>
+            {payment.receipt_number} paid {formatMoney(applied, currency)} of {from.number}. Move some or all of it to
+            another of this tenant&apos;s invoices, or back to their credit. {from.number} becomes due again by that
+            amount. The move is recorded in the statement and the audit log.
+          </DialogDescription>
+        </DialogHeader>
+        {action.isError && <Alert variant="error" title={action.error.message} />}
+        <FormField id="mv-to" label="Move to">
+          <NativeSelect value={form.to} onChange={(e) => setForm({ ...form, to: e.target.value })}>
+            <option value="">The tenant&apos;s credit</option>
+            {targets.map((i) => (
+              <option key={i.id} value={i.id}>
+                {i.number} · due {formatDay(i.due_date)} · {formatMoney(i.amount_due, currency)} outstanding
+              </option>
+            ))}
+          </NativeSelect>
+        </FormField>
+        <FormField
+          id="mv-amount"
+          label="Amount"
+          hint={`Up to ${formatMoney(limit, currency)}${target && limit < applied ? ` (what ${target.number} still owes)` : ""}.`}
+        >
+          <Input inputMode="decimal" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} />
+        </FormField>
+        <FormField id="mv-reason" label="Reason">
+          <Input maxLength={255} placeholder="e.g. Tenant paid for September, not August" value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value })} />
+        </FormField>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button
+            disabled={!amountOk || !form.reason.trim()}
+            loading={action.isPending}
+            onClick={() =>
+              action.mutate(
+                {
+                  id: payment.id,
+                  action: "move-allocation",
+                  body: { from_invoice: from.invoice, to_invoice: form.to || null, amount: form.amount, reason: form.reason },
+                },
+                {
+                  onSuccess: () => {
+                    toast.success(target ? `Moved to ${target.number}` : "Moved to the tenant's credit");
+                    onClose();
+                  },
+                },
+              )
+            }
+          >
+            Move
           </Button>
         </DialogFooter>
       </DialogContent>

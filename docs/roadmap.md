@@ -230,12 +230,25 @@ A property-wide bill can be shared fairly, not only evenly.
 - [x] Invoice lines say how they were split (e.g. "shared by floor area, 45 of 300 m²")
 - [x] Sample data splits Nyali's common-area electricity by floor area
 
+## After Phase 7 — Moving payments between invoices ✅ complete
+Fix a payment applied to the wrong invoice without reversing and re-recording it.
+
+- [x] **Move** on a payment's allocation: some or all of it to another open invoice of the same
+      lease (up to what that invoice owes), or back to the tenant's credit
+- [x] A reason is required; `payments.reverse` (owner-only by default); audited as
+      `payment.allocation_moved`
+- [x] Ledger stays balanced: +amount on the old invoice, −amount on the new one (or as credit
+      held); the lease balance doesn't change, and both invoices show the move in their history
+- [x] Allocations keep their history: the moved one is marked as moved and what stays is a new
+      allocation; receipts and the tenant app show where the payment is applied now
+- [x] An invoice whose payments have all been moved off (and that has no credits) can be voided
+- [x] Reversing a payment after a move undoes everything, as before
+
 ## Known limitations (current)
 
 - The arrears report is always as of today; other reports cover any past period.
 - M-Pesa integration is untested against Safaricom's real APIs (needs credentials); no direct bank
   API integration (CSV import only).
-- Payment allocation can't be moved between invoices after the fact; reverse and re-record instead.
 - Proration is by calendar day. A lease can charge its first month in full instead; there is no
   per-charge "no proration" option for other months (e.g. a mid-month rent change).
 - Move-out settlement doesn't credit unused days on a month that was already billed; staff credit

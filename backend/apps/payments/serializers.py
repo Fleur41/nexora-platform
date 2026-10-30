@@ -279,6 +279,18 @@ class AllocateSerializer(serializers.Serializer):
     allocations = AllocationInputSerializer(many=True, required=False)
 
 
+class MoveAllocationSerializer(serializers.Serializer):
+    from_invoice = OrganizationScopedPrimaryKeyRelatedField(queryset=Invoice.objects.all())
+    to_invoice = OrganizationScopedPrimaryKeyRelatedField(
+        queryset=Invoice.objects.all(),
+        required=False,
+        allow_null=True,
+        help_text="Leave empty to move it back to the tenant's credit.",
+    )
+    amount = serializers.DecimalField(max_digits=14, decimal_places=2, min_value=Decimal("0.01"))
+    reason = serializers.CharField(max_length=255)
+
+
 class MatchSerializer(serializers.Serializer):
     lease = AccessibleLeaseField()
 

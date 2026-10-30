@@ -38,7 +38,7 @@ const ENTRY_LABEL = {
   credit: "Credit",
   void: "Voided",
   payment: "Payment",
-  allocation: "Credit applied",
+  allocation: "Allocation",
   payment_reversal: "Payment reversed",
   refund: "Credit refunded",
 } as const;
@@ -65,7 +65,10 @@ export function InvoiceDetail() {
   const inv = invoice.data;
   const currency = inv.currency;
   const canAdjust = can("billing.adjust") && inv.status === "issued";
-  const hasMovements = inv.ledger_entries.some((e) => e.entry_type !== "invoice");
+  // Same rule as the API: no credits, and any payments have been moved off again (net zero).
+  const others = inv.ledger_entries.filter((e) => e.entry_type !== "invoice");
+  const hasMovements =
+    others.some((e) => e.entry_type === "credit") || Math.abs(others.reduce((sum, e) => sum + Number(e.amount), 0)) >= 0.005;
 
   return (
     <>
@@ -101,7 +104,7 @@ export function InvoiceDetail() {
               variant="outline"
               className="text-destructive"
               disabled={hasMovements}
-              title={hasMovements ? "Credited or paid invoices can't be voided; credit the balance instead" : undefined}
+              title={hasMovements ? "Credited or paid invoices can't be voided. Move the payment to another invoice (from the payment's page) or credit the balance instead." : undefined}
               onClick={() => setDialog("void")}
             >
               <Ban /> Void

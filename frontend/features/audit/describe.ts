@@ -63,6 +63,7 @@ const LABELS: Record<string, string> = {
   "payment.recorded": "Payment recorded",
   "payment.matched": "Payment matched to a lease",
   "payment.credit_applied": "Credit applied to invoices",
+  "payment.allocation_moved": "Payment moved between invoices",
   "payment.reversed": "Payment reversed",
   "payment.refunded": "Credit refunded",
   "payment.stk_requested": "M-Pesa payment requested",

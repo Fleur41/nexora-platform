@@ -5,6 +5,8 @@ Ledger representation (per lease, see billing.LedgerEntry):
     payment of A, allocated a₁..aₙ to invoices  →  −aᵢ (invoice i) for each allocation,
                                                     −(A − Σaᵢ) (no invoice) = credit held
     credit later applied c to invoice I          →  +c (no invoice), −c (invoice I)
+    m moved from invoice I to invoice J          →  +m (invoice I), −m (invoice J)
+    m moved from invoice I back to credit        →  +m (invoice I), −m (no invoice)
     refund f of credit                           →  +f (no invoice)
     payment reversal                             →  the exact opposite of every entry above
 
@@ -393,6 +395,107 @@ def apply_available_credit(*, request, lease: Lease, actor=None) -> int:
 
 
 # --- Corrections ---------------------------------------------------------------------------
+
+
+@transaction.atomic
+def move_allocation(
+    *,
+    request,
+    payment: Payment,
+    from_invoice: Invoice,
+    amount: Decimal,
+    reason: str,
+    to_invoice: Invoice | None = None,
+) -> Payment:
+    """Move part or all of what a payment paid on one invoice to another invoice of the same
+    lease, or back to the tenant's credit (e.g. it was applied to the wrong month)."""
+    if not reason.strip():
+        raise BusinessRuleViolation("Give a reason for moving the payment.")
+    if payment.lease_id is None:
+        raise BusinessRuleViolation("Match the payment to a lease first.")
+    _lock_lease(payment.lease)
+    payment = Payment.objects.select_for_update().get(pk=payment.pk)
+    if payment.status != Payment.Status.COMPLETED:
+        raise BusinessRuleViolation("Only completed payments can be moved.")
+    amount = quantize(amount)
+    if amount <= 0:
+        raise BusinessRuleViolation("The amount to move must be more than zero.")
+    from_invoice = Invoice.objects.select_for_update().get(pk=from_invoice.pk)
+    _validate_invoice(payment, from_invoice)
+    current = list(
+        payment.allocations.select_for_update().filter(invoice=from_invoice, is_reversed=False)
+    )
+    applied = sum((a.amount for a in current), ZERO)
+    if applied <= 0:
+        raise BusinessRuleViolation(f"This payment isn't applied to invoice {from_invoice.number}.")
+    if amount > applied:
+        raise BusinessRuleViolation(
+            f"Only {applied} of this payment is applied to invoice {from_invoice.number}."
+        )
+    if to_invoice is not None:
+        to_invoice = Invoice.objects.select_for_update().get(pk=to_invoice.pk)
+        _validate_invoice(payment, to_invoice)
+        if to_invoice.pk == from_invoice.pk:
+            raise BusinessRuleViolation("Choose a different invoice to move the payment to.")
+        due = amount_due(to_invoice)
+        if amount > due:
+            raise BusinessRuleViolation(f"Invoice {to_invoice.number} only has {due} due.")
+
+    actor, reason = request.user, reason.strip()
+    # Allocations are kept as history: the moved ones are marked reversed, and what stays on
+    # the invoice becomes a new allocation.
+    payment.allocations.filter(pk__in=[a.pk for a in current]).update(is_reversed=True)
+
+    def allocate(invoice, value):
+        PaymentAllocation.objects.create(
+            organization=payment.organization,
+            payment=payment,
+            invoice=invoice,
+            amount=value,
+            created_by=actor,
+        )
+
+    if applied > amount:
+        allocate(from_invoice, applied - amount)
+    destination = f"invoice {to_invoice.number}" if to_invoice else "credit"
+    _entry(
+        payment,
+        amount=amount,
+        entry_type=Entry.ALLOCATION,
+        invoice=from_invoice,
+        description=f"Payment {payment.receipt_number} moved from {from_invoice.number} "
+        f"to {destination}",
+        actor=actor,
+        reason=reason,
+    )
+    if to_invoice is not None:
+        allocate(to_invoice, amount)
+    _entry(
+        payment,
+        amount=-amount,
+        entry_type=Entry.ALLOCATION,
+        invoice=to_invoice,
+        description=(
+            f"Payment {payment.receipt_number} → {to_invoice.number} (moved from "
+            f"{from_invoice.number})"
+            if to_invoice
+            else f"Payment {payment.receipt_number} (credit held, moved from {from_invoice.number})"
+        ),
+        actor=actor,
+        reason=reason,
+    )
+    record_event(
+        request,
+        "payment.allocation_moved",
+        target=payment,
+        metadata={
+            "amount": str(amount),
+            "from": from_invoice.number,
+            "to": to_invoice.number if to_invoice else "credit",
+            "reason": reason,
+        },
+    )
+    return payment
 
 
 @transaction.atomic

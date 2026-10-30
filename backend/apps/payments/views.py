@@ -32,6 +32,7 @@ from .serializers import (
     AllocateSerializer,
     CredentialSerializer,
     MatchSerializer,
+    MoveAllocationSerializer,
     PaymentConfigurationSerializer,
     PaymentDetailSerializer,
     PaymentRequestSerializer,
@@ -149,6 +150,7 @@ class PaymentViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, PropertyS
         "retrieve": "payments.view",
         "create": "payments.record",
         "allocate": "payments.record",
+        "move_allocation": "payments.reverse",
         "match": "payments.record",
         "reverse": "payments.reverse",
         "refund": "payments.reverse",
@@ -244,7 +246,18 @@ class PaymentViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, PropertyS
         )
         return self._detail(payment)
 
-    @extend_schema(request=PaymentReverseSerializer, responses=PaymentDetailSerializer)
+    @extend_schema(request=MoveAllocationSerializer, responses=PaymentDetailSerializer)
+    @action(detail=True, methods=["post"], url_path="move-allocation")
+    def move_allocation(self, request, pk=None):
+        """Move what a payment paid on one invoice to another invoice, or back to credit."""
+        payment = self.get_object()
+        serializer = MoveAllocationSerializer(
+            data=request.data, context=self.get_serializer_context()
+        )
+        serializer.is_valid(raise_exception=True)
+        services.move_allocation(request=request, payment=payment, **serializer.validated_data)
+        return self._detail(payment)
+
     @extend_schema(responses={(200, "application/pdf"): bytes})
     @action(detail=True, methods=["get"])
     def pdf(self, request, pk=None):
@@ -258,6 +271,7 @@ class PaymentViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, PropertyS
             raise BusinessRuleViolation("Match this payment to a tenant before issuing a receipt.")
         return pdf_response(receipt_pdf(payment), receipt_filename(payment))
 
+    @extend_schema(request=PaymentReverseSerializer, responses=PaymentDetailSerializer)
     @action(detail=True, methods=["post"])
     def reverse(self, request, pk=None):
         payment = self.get_object()
