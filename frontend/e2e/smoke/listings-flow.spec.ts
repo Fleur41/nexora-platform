@@ -37,12 +37,25 @@ test("owner publishes a vacant unit; a visitor requests a viewing; staff book it
   const visitor = await visitorContext.newPage();
   await visitor.goto(`/listings?q=${unique}`);
   await expect(visitor.getByText("1 home to let")).toBeVisible();
+  // Filters live in the URL and re-render the results on the server.
+  await visitor.getByLabel("Bedrooms").selectOption("3");
+  await expect(visitor.getByText("No homes match")).toBeVisible();
+  await expect(visitor).toHaveURL(/bedrooms=3/);
+  await visitor.getByLabel("Bedrooms").selectOption("");
+  await expect(visitor.getByText("1 home to let")).toBeVisible();
   const shots = process.env.E2E_SCREENSHOTS;
   if (shots) await visitor.screenshot({ path: `${shots}/listings-search.png`, fullPage: true });
   await visitor.getByRole("link", { name: new RegExp(`Bright 2-bedroom in Westlands ${unique}`) }).click();
   await expect(visitor.getByRole("heading", { name: `Bright 2-bedroom in Westlands ${unique}` })).toBeVisible();
   await expect(visitor.getByRole("definition").filter({ hasText: "Ksh 45,000 / month" })).toBeVisible();
   await expect(visitor.getByRole("img", { name: /photo 1 of 1/ })).toBeVisible();
+  // Search engines and link previews get the home in the HTML itself, not after JavaScript runs.
+  const html = await (await visitor.request.get(visitor.url(), { headers: { "user-agent": "facebookexternalhit/1.1" } })).text();
+  const head = html.split("</head>")[0]!;
+  expect(head).toContain(`<meta property="og:title" content="Bright 2-bedroom in Westlands ${unique}"/>`);
+  expect(head).toMatch(/2 bedrooms to let in Westlands, Nairobi for Ksh\s45,000 a month\./);
+  expect(head).toMatch(/<meta property="og:image" content="https?:\/\/[^"]+\/photos\//);
+  expect(html).toContain("Balcony, lift and borehole water.");
   await visitor.getByLabel("Your name").fill("Amina Yusuf");
   await visitor.getByLabel("Phone").fill("0722 333 444");
   await visitor.getByLabel("Anything else? (optional)").fill("After 5pm please");
@@ -50,6 +63,8 @@ test("owner publishes a vacant unit; a visitor requests a viewing; staff book it
   await visitor.getByRole("button", { name: "Request a viewing" }).click();
   await expect(visitor.getByText("Viewing request sent")).toBeVisible();
   await expect(visitor.getByText(/ENQ-0001/)).toBeVisible();
+  await visitor.goto("/listings/00000000-0000-0000-0000-000000000000");
+  await expect(visitor.getByRole("heading", { name: "This home is no longer advertised" })).toBeVisible();
   await visitorContext.close();
 
   // --- Staff follow it up ------------------------------------------------------------------------

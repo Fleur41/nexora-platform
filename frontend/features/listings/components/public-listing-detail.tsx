@@ -2,7 +2,6 @@
 
 import { ArrowLeft, BedDouble, Bath, CalendarCheck, CheckCircle2, Home, MapPin, Phone } from "lucide-react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
 import * as React from "react";
 
 import { Alert } from "@/components/ui/alert";
@@ -10,31 +9,15 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FormField } from "@/components/ui/form-field";
 import { Input, NativeSelect } from "@/components/ui/input";
-import { Skeleton } from "@/components/ui/skeleton";
-import { ErrorState } from "@/components/ui/states";
 import { Textarea } from "@/components/ui/textarea";
-import { usePublicListing, useSubmitEnquiry } from "@/features/listings/api";
-import { ApiError, errorMessage } from "@/lib/api/errors";
+import { useSubmitEnquiry } from "@/features/listings/api";
+import { bedroomsLabel } from "@/features/listings/format";
+import { errorMessage } from "@/lib/api/errors";
 import { cn, formatDay, formatMoney } from "@/lib/utils";
 import type { EnquiryKind, PublicListing, TimeOfDay } from "@/types/api";
 
-import { bedroomsLabel } from "./public-listings";
-
-export function PublicListingDetail() {
-  const { id } = useParams<{ id: string }>();
-  const listing = usePublicListing(id);
-
-  if (listing.isPending) return <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6"><Skeleton className="h-[32rem] w-full" /></div>;
-  if (listing.isError) {
-    const gone = listing.error instanceof ApiError && listing.error.status === 404;
-    return (
-      <div className="mx-auto max-w-xl px-4 py-16 sm:px-6">
-        <ErrorState message={gone ? "This home has been let or is no longer advertised." : errorMessage(listing.error)} />
-        <p className="mt-4 text-center"><Link className="font-medium underline" href="/listings">See other homes</Link></p>
-      </div>
-    );
-  }
-  const l = listing.data;
+/** An advertised home. Rendered on the server (with the page) and made interactive in the browser. */
+export function PublicListingDetail({ listing: l }: { listing: PublicListing }) {
   return (
     <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
       <Link href="/listings" className="mb-4 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
