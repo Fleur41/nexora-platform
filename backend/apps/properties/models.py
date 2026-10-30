@@ -119,6 +119,13 @@ class Unit(OrganizationScopedModel):
     market_rent = MoneyField(help_text="Current asking rent. Existing leases keep their own terms.")
     water_meter_number = models.CharField(max_length=64, blank=True)
     electricity_meter_number = models.CharField(max_length=64, blank=True)
+    floor_area = models.DecimalField(
+        max_digits=8,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="In m². Used to split shared costs by size.",
+    )
     notes = models.TextField(blank=True)
 
     class Meta:
@@ -127,6 +134,10 @@ class Unit(OrganizationScopedModel):
             models.UniqueConstraint(fields=["property", "number"], name="properties_unit_unique"),
             models.CheckConstraint(
                 condition=Q(market_rent__gte=0), name="properties_unit_nonnegative_rent"
+            ),
+            models.CheckConstraint(
+                condition=Q(floor_area__isnull=True) | Q(floor_area__gt=0),
+                name="properties_unit_positive_area",
             ),
         ]
         indexes = [models.Index(fields=["organization", "status"])]

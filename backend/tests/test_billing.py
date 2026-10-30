@@ -477,6 +477,103 @@ def test_shared_cost_without_sharing_units_is_reported_not_billed(
     assert not InvoiceLine.objects.filter(shared_cost__isnull=False).exists()
 
 
+def add_shared_cost(client, org, property_, code, total, split_by="equal"):
+    return client.post(
+        "/api/v1/shared-costs/",
+        {
+            "property": str(property_.pk),
+            "charge_type": str(charge(org, code).pk),
+            "period": "2026-08-01",
+            "total_amount": total,
+            "split_by": split_by,
+        },
+    )
+
+
+def shared_lines(cost_id):
+    return {
+        line.invoice.lease_id: line
+        for line in InvoiceLine.objects.filter(shared_cost_id=cost_id).select_related("invoice")
+    }
+
+
+def test_shared_cost_split_by_floor_area(make_member, org_a, unit_type, property_):
+    _, client = make_member(org_a)
+    leases = [lease_on(unit_type) for _ in range(3)]
+    add_rule(client, org_a, "service_charge", scope="property", property=property_, method="shared")
+    cost = add_shared_cost(client, org_a, property_, "service_charge", "100.00", "floor_area")
+    assert cost.status_code == 201, cost.data
+    assert cost.data["split_by"] == "floor_area"
+
+    # A unit without a floor area holds the whole cost back, so nobody is overcharged.
+    for lease, area in zip(leases[:2], ["20", "30"], strict=True):
+        assert (
+            client.patch(f"/api/v1/units/{lease.unit_id}/", {"floor_area": area}).status_code == 200
+        )
+    result = run(client, "2026-08")
+    assert any(
+        "no floor area for unit " + leases[2].unit.number in note for note in result["skipped"]
+    )
+    assert not shared_lines(cost.data["id"])
+
+    client.patch(f"/api/v1/units/{leases[2].unit_id}/", {"floor_area": "60"})
+    run(client, "2026-08")
+    lines = shared_lines(cost.data["id"])
+    # 20/110, 30/110 and 60/110 of 100.00: the leftover cent goes to the largest remainder.
+    assert [lines[lease.pk].amount for lease in leases] == [
+        Decimal("18.18"),
+        Decimal("27.27"),
+        Decimal("54.55"),
+    ]
+    assert "shared by floor area, 30 of 110 m²" in lines[leases[1].pk].description
+
+
+def test_shared_cost_split_by_meter_usage(make_member, org_a, unit_type, property_):
+    _, client = make_member(org_a)
+    leases = [lease_on(unit_type) for _ in range(3)]
+    add_rule(client, org_a, "water", scope="property", property=property_, method="shared")
+    cost = add_shared_cost(client, org_a, property_, "water", "2000.00", "meter_usage")
+    assert cost.status_code == 201, cost.data
+
+    def read(lease, values):
+        meter = client.post(
+            "/api/v1/meters/", {"unit": str(lease.unit_id), "utility": "water"}
+        ).data
+        for day, value in zip(["2026-08-01", "2026-08-31"], values, strict=False):
+            client.post(
+                "/api/v1/meter-readings/",
+                {"meter": meter["id"], "reading_date": day, "value": value},
+            )
+
+    read(leases[0], ["100", "110"])
+    read(leases[1], ["50", "80"])
+    read(leases[2], ["7"])  # only the opening reading so far
+    result = run(client, "2026-08")
+    assert any("no water reading this month" in note for note in result["skipped"])
+    assert not shared_lines(cost.data["id"])
+
+    meter = client.get("/api/v1/meters/", {"unit": str(leases[2].unit_id)}).data["results"][0]
+    client.post(
+        "/api/v1/meter-readings/",
+        {"meter": meter["id"], "reading_date": "2026-08-31", "value": "7"},
+    )
+    run(client, "2026-08")
+    lines = shared_lines(cost.data["id"])
+    # 10 and 30 of 40 m³; the unit that used nothing isn't billed a zero line.
+    assert {k: v.amount for k, v in lines.items()} == {
+        leases[0].pk: Decimal("500.00"),
+        leases[1].pk: Decimal("1500.00"),
+    }
+    assert "shared by usage, 30 of 40 m³" in lines[leases[1].pk].description
+
+
+def test_meter_usage_split_needs_a_metered_charge(make_member, org_a, property_):
+    _, client = make_member(org_a)
+    res = add_shared_cost(client, org_a, property_, "security", "900", "meter_usage")
+    assert res.status_code == 400
+    assert "can't be split by usage" in str(res.data["error"]["details"]["split_by"])
+
+
 # --- Scheduling and safety nets -------------------------------------------------------
 
 

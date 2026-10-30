@@ -217,13 +217,25 @@ Proper documents for tenants and accountants, instead of printing the web page.
 - [x] Downloads are private and never cached (`Cache-Control: private, no-store`); text typed by
       users is escaped, so it can't change the document's layout
 
+## After Phase 7 — Weighted shared costs ✅ complete
+A property-wide bill can be shared fairly, not only evenly.
+
+- [x] Each shared cost is split **evenly**, **by floor area** or **by metered usage**, still exact
+      to the cent (leftover cents to the largest remainders)
+- [x] Units have an optional floor area (m²); a floor-area split needs it on every sharing unit
+- [x] A usage split is for a charge linked to a meter type (e.g. the main water bill): each unit's
+      usage from readings taken that month during the tenancy; units that used nothing get no line
+- [x] Anything missing (an area, a reading) holds the whole cost back with a note in the preview
+      naming the units, so nobody is overcharged; generating again bills it once fixed
+- [x] Invoice lines say how they were split (e.g. "shared by floor area, 45 of 300 m²")
+- [x] Sample data splits Nyali's common-area electricity by floor area
+
 ## Known limitations (current)
 
 - The arrears report is always as of today; other reports cover any past period.
 - M-Pesa integration is untested against Safaricom's real APIs (needs credentials); no direct bank
   API integration (CSV import only).
 - Payment allocation can't be moved between invoices after the fact; reverse and re-record instead.
-- Shared costs split evenly per occupied unit; weighting by unit size or meter is not supported yet.
 - Proration is by calendar day. A lease can charge its first month in full instead; there is no
   per-charge "no proration" option for other months (e.g. a mid-month rent change).
 - Move-out settlement doesn't credit unused days on a month that was already billed; staff credit

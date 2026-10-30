@@ -291,7 +291,10 @@ class SharedCostViewSet(
             self.request,
             "shared_cost.created",
             target=serializer.instance,
-            metadata={"total": str(serializer.instance.total_amount)},
+            metadata={
+                "total": str(serializer.instance.total_amount),
+                "split_by": serializer.instance.split_by,
+            },
         )
 
     def perform_destroy(self, instance):

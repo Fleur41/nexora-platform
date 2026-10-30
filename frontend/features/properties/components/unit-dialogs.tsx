@@ -43,6 +43,10 @@ const unitSchema = z.object({
   market_rent: moneyString("the rent").or(z.literal("")),
   water_meter_number: optionalText(64),
   electricity_meter_number: optionalText(64),
+  floor_area: z
+    .string()
+    .trim()
+    .refine((v) => v === "" || (/^\d{1,6}(\.\d{1,2})?$/.test(v) && Number(v) > 0), "Enter the area in m², e.g. 45 or 62.5."),
   notes: optionalText(2000),
 });
 type UnitValues = z.infer<typeof unitSchema>;
@@ -98,6 +102,7 @@ function UnitForm({
       market_rent: unit?.market_rent ?? "",
       water_meter_number: unit?.water_meter_number ?? "",
       electricity_meter_number: unit?.electricity_meter_number ?? "",
+      floor_area: unit?.floor_area ? String(Number(unit.floor_area)) : "",
       notes: unit?.notes ?? "",
     },
   });
@@ -116,13 +121,14 @@ function UnitForm({
       <form
         noValidate
         className="space-y-4"
-        onSubmit={form.handleSubmit(({ market_rent, ...v }) => {
+        onSubmit={form.handleSubmit(({ market_rent, floor_area, ...v }) => {
           setBanner(null);
           save.mutate(
             {
               id: unit?.id,
               property: propertyId,
               ...v,
+              floor_area: floor_area === "" ? null : floor_area,
               ...(market_rent === "" ? {} : { market_rent }),
             },
             {
@@ -169,6 +175,14 @@ function UnitForm({
             <Input {...form.register("electricity_meter_number")} />
           </FormField>
         </div>
+        <FormField
+          id="u-area"
+          label="Floor area (m²)"
+          error={errors.floor_area?.message}
+          hint="Optional. Needed to split a shared cost by floor area."
+        >
+          <Input inputMode="decimal" {...form.register("floor_area")} />
+        </FormField>
         <FormField id="u-notes" label="Notes" error={errors.notes?.message}>
           <Textarea rows={2} {...form.register("notes")} />
         </FormField>
@@ -357,6 +371,10 @@ export function UnitDetailDialog({
             <div>
               <dt className="text-muted-foreground">Electricity meter</dt>
               <dd>{unit.electricity_meter_number || "—"}</dd>
+            </div>
+            <div>
+              <dt className="text-muted-foreground">Floor area</dt>
+              <dd>{unit.floor_area ? `${Number(unit.floor_area)} m²` : "—"}</dd>
             </div>
           </dl>
           {unit.notes && <p className="rounded-lg bg-muted p-3 text-sm">{unit.notes}</p>}

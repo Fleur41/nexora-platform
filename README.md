@@ -122,7 +122,7 @@ cd backend
 Creates **Nexora Demo Homes (sample data)**:
 - **Properties and units:** 3 properties in Nairobi, Kiambu and Mombasa with 26 units.
 - **Tenants and leases:** 22 tenants (all invented) on active, ended, draft and future-start leases.
-- **Charges:** security, garbage, metered water, included-in-rent water, a shared electricity bill, a parking charge, and one unit opted out of security.
+- **Charges:** security, garbage, metered water, included-in-rent water, a shared electricity bill split by floor area, a parking charge, and one unit opted out of security.
 - **Billing history:** invoices since the earliest lease start, with tenants who pay on time, pay late, pay partially, overpay, or are in arrears.
 - **Payments:** M-Pesa, bank and cash payments, plus two unmatched M-Pesa payments waiting to be reconciled.
 - **Deposits:** received deposits, applied and refunded through the move-out settlement.
@@ -227,7 +227,11 @@ CI (`.github/workflows/ci.yml`) runs the same checks plus `manage.py check --dep
 4. **Utilities**: add a water meter to a unit, record a baseline reading, then a later one. With a
    metered water rule (e.g. 150 per m³), the next billing run bills the usage exactly once.
 5. **Billing → Shared costs**: enter a property-wide bill. It's split to the cent between occupied
-   units whose rule for that charge uses the *shared* method.
+   units whose rule for that charge uses the *shared* method: **evenly**, **by floor area** (set
+   on each unit; every sharing unit needs one) or **by metered usage** (for a metered charge such
+   as water: what each unit's meter measured that month, so each needs a reading). If something
+   is missing, the preview says which units, and nothing is billed until you fix it and generate
+   again.
 6. On a lease: **Account** shows the balance and running statement; **Deposit** records money
    received, deductions and refunds separately from rent (held deposits are a liability).
 7. **Charges → Automatic billing** generates each month's invoices on a chosen day (Celery beat).

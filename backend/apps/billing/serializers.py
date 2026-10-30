@@ -129,6 +129,7 @@ class SharedCostSerializer(serializers.ModelSerializer):
             "charge_type_name",
             "period",
             "total_amount",
+            "split_by",
             "description",
             "allocated_amount",
             "allocated_units",
@@ -149,6 +150,16 @@ class SharedCostSerializer(serializers.ModelSerializer):
         if exists.exists():
             raise serializers.ValidationError(
                 {"period": ["This charge already has a shared cost for that property and month."]}
+            )
+        split_by = attrs.get("split_by", SharedCost.SplitBy.EQUAL)
+        if split_by == SharedCost.SplitBy.METER_USAGE and not attrs["charge_type"].meter_utility:
+            raise serializers.ValidationError(
+                {
+                    "split_by": [
+                        f"{attrs['charge_type'].name} is not linked to a meter type, so it can't "
+                        "be split by usage."
+                    ]
+                }
             )
         return attrs
 

@@ -1,4 +1,5 @@
 import type {
+  SharedCostSplit,
   BillingFrequency,
   Inspection,
   InspectionKind,
@@ -114,6 +115,12 @@ export const RULE_METHOD: Record<RuleMethod, string> = {
   one_time: "One-time",
   metered: "Metered (per unit used)",
   shared: "Shared cost split",
+};
+
+export const SHARED_COST_SPLIT: Record<SharedCostSplit, string> = {
+  equal: "Evenly",
+  floor_area: "By floor area",
+  meter_usage: "By metered usage",
 };
 
 export const INVOICE_KIND: Record<InvoiceKind, string> = {

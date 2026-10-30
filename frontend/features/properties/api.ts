@@ -122,7 +122,7 @@ export function useUnitSummary(enabled = true) {
 }
 
 export type UnitInput = Partial<
-  Pick<Unit, "property" | "unit_type" | "number" | "floor" | "market_rent" | "water_meter_number" | "electricity_meter_number" | "notes">
+  Pick<Unit, "property" | "unit_type" | "number" | "floor" | "market_rent" | "water_meter_number" | "electricity_meter_number" | "floor_area" | "notes">
 >;
 
 export function useSaveUnit() {
