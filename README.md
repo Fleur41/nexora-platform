@@ -249,6 +249,10 @@ CI (`.github/workflows/ci.yml`) runs the same checks plus `manage.py check --dep
    same file adds nothing.
 4. **Reverse** a payment (e.g. a bounced cheque) or **refund** credit. Owner-only by default, with
    a reason, and audited.
+   Paid the wrong month? On the payment, **Applied to → Move** shifts some or all of what it paid
+   on one invoice to another of the tenant's open invoices, or back to their credit (same
+   permission, a reason, audited, and shown in the statement). An invoice whose payments have
+   all been moved off can then be voided.
 5. M-Pesa automation (paybill callbacks and STK prompts) needs Daraja credentials and a public URL:
    follow [docs/mpesa.md](docs/mpesa.md).
 

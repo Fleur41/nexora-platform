@@ -321,10 +321,15 @@ def void_invoice(*, request, invoice: Invoice, reason: str) -> Invoice:
         raise BusinessRuleViolation("This invoice is already void.")
     if not reason.strip():
         raise BusinessRuleViolation("Give a reason for voiding the invoice.")
-    if invoice.ledger_entries.exclude(entry_type=LedgerEntry.EntryType.INVOICE).exists():
+    # Payments moved off the invoice again (net zero) don't count.
+    others = invoice.ledger_entries.exclude(entry_type=LedgerEntry.EntryType.INVOICE)
+    if (
+        others.filter(entry_type=LedgerEntry.EntryType.CREDIT).exists()
+        or (others.aggregate(s=Sum("amount"))["s"] or ZERO) != 0
+    ):
         raise BusinessRuleViolation(
-            "This invoice has credits or payments against it. Issue a credit for the "
-            "remaining balance instead of voiding it."
+            "This invoice has credits or payments against it. Move its payments to another "
+            "invoice or to credit, or issue a credit for the remaining balance instead."
         )
     invoice.status = Invoice.Status.VOID
     invoice.voided_at = timezone.now()

@@ -75,7 +75,7 @@ export function useRecordPayment() {
 export function usePaymentAction() {
   const invalidate = useInvalidateOrg();
   return useMutation({
-    mutationFn: ({ id, action, body }: { id: string; action: "allocate" | "match" | "reverse" | "refund"; body: object }) =>
+    mutationFn: ({ id, action, body }: { id: string; action: "allocate" | "match" | "reverse" | "refund" | "move-allocation"; body: object }) =>
       api.post<PaymentDetail>(`/payments/${id}/${action}/`, body),
     onSuccess: () => invalidate(...MONEY_RESOURCES),
   });

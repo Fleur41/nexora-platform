@@ -211,3 +211,111 @@ def test_payment_dates_and_amounts_are_validated(billed):
         {"lease": str(lease.pk), "amount": "10", "received_on": "2099-01-01", "method": "cash"},
     )
     assert future.status_code == 409
+
+
+# --- Moving a payment between invoices ---------------------------------------------------
+
+
+@pytest.fixture
+def two_months(billed):
+    client, lease, august = billed
+    bill(client, "2026-09")
+    september = Invoice.objects.filter(lease=lease).exclude(pk=august.pk).get()
+    payment = pay(client, lease, "30000").data  # settles August in full
+    return client, lease, august, september, payment
+
+
+def move(client, payment, from_invoice, amount, to_invoice=None, reason="Paid for September"):
+    return client.post(
+        f"/api/v1/payments/{payment['id']}/move-allocation/",
+        {
+            "from_invoice": str(from_invoice.pk),
+            "to_invoice": str(to_invoice.pk) if to_invoice else None,
+            "amount": amount,
+            "reason": reason,
+        },
+        format="json",
+    )
+
+
+def test_move_part_of_a_payment_to_another_invoice(two_months):
+    client, lease, august, september, payment = two_months
+    res = move(client, payment, august, "10000", september)
+    assert res.status_code == 200, res.data
+    assert (due(august), due(september)) == (Decimal("10000.00"), Decimal("20000.00"))
+    assert billing.lease_balance(lease) == Decimal("30000.00")  # the total owed is unchanged
+    active = {
+        (a["invoice_number"], a["amount"]) for a in res.data["allocations"] if not a["is_reversed"]
+    }
+    assert active == {(august.number, "20000.00"), (september.number, "10000.00")}
+    # The original allocation stays as history.
+    assert any(a["is_reversed"] and a["amount"] == "30000.00" for a in res.data["allocations"])
+    log = AuditLog.objects.get(action="payment.allocation_moved")
+    assert log.metadata["from"] == august.number and log.metadata["to"] == september.number
+    assert log.metadata["reason"] == "Paid for September"
+    moved = LedgerEntry.objects.filter(payment_id=payment["id"], invoice=august, amount=10000)
+    assert moved.get().reason == "Paid for September"
+
+
+def test_move_a_payment_back_to_credit_then_refund_it(two_months):
+    client, lease, august, _, payment = two_months
+    res = move(client, payment, august, "5000", reason="Tenant asked for a refund")
+    assert res.status_code == 200, res.data
+    assert res.data["unallocated"] == "5000.00"
+    assert due(august) == Decimal("5000.00")
+    assert services.lease_credit(lease) == Decimal("5000.00")
+    refund = client.post(
+        f"/api/v1/payments/{payment['id']}/refund/",
+        {
+            "amount": "5000",
+            "refunded_on": "2026-08-06",
+            "method": "mpesa",
+            "reference": "R1",
+            "reason": "Overpaid",
+        },
+    )
+    assert refund.status_code == 201, refund.data
+    assert services.lease_credit(lease) == Decimal("0.00")
+
+
+def test_moving_off_an_invoice_allows_voiding_it(two_months):
+    client, _, august, september, payment = two_months
+    void = lambda: client.post(f"/api/v1/invoices/{august.pk}/void/", {"reason": "Billed twice"})  # noqa: E731
+    assert void().status_code == 409
+    assert move(client, payment, august, "30000", september).status_code == 200
+    assert void().status_code == 200
+    assert due(august) == Decimal("0.00")
+
+
+def test_reversing_a_moved_payment_undoes_everything(two_months):
+    client, lease, august, september, payment = two_months
+    move(client, payment, august, "10000", september)
+    res = client.post(f"/api/v1/payments/{payment['id']}/reverse/", {"reason": "Bounced"})
+    assert res.status_code == 200, res.data
+    assert (due(august), due(september)) == (Decimal("30000.00"), Decimal("30000.00"))
+    assert billing.lease_balance(lease) == Decimal("60000.00")
+    assert all(a["is_reversed"] for a in res.data["allocations"])
+
+
+def test_moves_are_validated(two_months, make_member, org_a):
+    client, lease, august, september, payment = two_months
+    assert move(client, payment, august, "30000.01").status_code == 409
+    assert move(client, payment, september, "1").status_code == 409  # nothing applied there
+    assert move(client, payment, august, "1", august).status_code == 409
+    assert move(client, payment, august, "1", reason="").status_code == 400
+    paid = pay(
+        client, lease, "25000", allocations=[{"invoice": str(september.pk), "amount": "25000"}]
+    )
+    assert paid.status_code == 201, paid.data
+    too_much = move(client, payment, august, "5000.01", september)
+    assert too_much.status_code == 409
+    assert "only has 5000.00 due" in str(too_much.data)
+    other = make_lease(org_a)
+    bill(client, "2026-08")
+    elsewhere = Invoice.objects.filter(lease=other).first()
+    res = move(client, payment, august, "1", elsewhere)
+    assert res.status_code == 409
+    assert "different lease" in str(res.data)
+    # A correction, so it needs payments.reverse (owner-only by default).
+    _, accountant = make_member(org_a, role=Role.ACCOUNTANT)
+    assert move(accountant, payment, august, "1").status_code == 403

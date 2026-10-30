@@ -34,7 +34,7 @@ const ENTRY = {
   credit: "Credit",
   void: "Void",
   payment: "Payment",
-  allocation: "Credit applied",
+  allocation: "Allocation",
   payment_reversal: "Payment reversed",
   refund: "Credit refunded",
 } as const;
